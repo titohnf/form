@@ -1,14 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import type { Question, QuestionType } from "@/lib/types";
-import { updateQuestion, deleteQuestion, moveQuestion } from "./actions";
+import type {
+  MatchingOptions,
+  McqOptions,
+  OrderingOptions,
+  Question,
+  QuestionType,
+} from "@/lib/types";
+import { updateQuestion, deleteQuestion, moveQuestion, saveToBank } from "./actions";
 
 const typeLabel: Record<QuestionType, string> = {
-  mcq_single: "Pilihan Ganda",
+  mcq_single: "Pilihan Ganda (satu jawaban)",
+  mcq_multi: "Pilihan Ganda (banyak jawaban / checkbox)",
   true_false: "Benar / Salah",
   short_answer: "Isian Singkat",
   essay: "Esai",
+  matching: "Menjodohkan",
+  ordering: "Mengurutkan",
+  fill_blank: "Mengisi Bagian Kosong",
+  upload_file: "Upload Gambar/File",
 };
 
 export default function QuestionEditor({
@@ -24,6 +35,11 @@ export default function QuestionEditor({
 }) {
   const [type, setType] = useState<QuestionType>(question.type);
   const boundUpdate = updateQuestion.bind(null, quizId, question.id);
+  const boundSaveToBank = saveToBank.bind(null, question.id);
+
+  const mcqOptions = question.options as McqOptions | null;
+  const matchingOptions = question.options as MatchingOptions | null;
+  const orderingOptions = question.options as OrderingOptions | null;
 
   return (
     <div className="rounded border border-gray-200 p-4">
@@ -48,6 +64,13 @@ export default function QuestionEditor({
           </button>
           <button
             type="button"
+            onClick={() => boundSaveToBank()}
+            className="text-xs text-gray-500 hover:underline"
+          >
+            Simpan ke Bank
+          </button>
+          <button
+            type="button"
             onClick={() => deleteQuestion(quizId, question.id)}
             className="text-xs text-red-500 hover:underline"
           >
@@ -66,6 +89,11 @@ export default function QuestionEditor({
             rows={2}
             className="rounded border border-gray-300 px-3 py-2"
           />
+          {type === "fill_blank" && (
+            <span className="text-xs text-gray-400">
+              Tandai bagian kosong dengan tiga garis bawah, contoh: Ibukota Indonesia adalah ___.
+            </span>
+          )}
         </label>
 
         <div className="flex gap-3">
@@ -104,7 +132,7 @@ export default function QuestionEditor({
               <textarea
                 name="choices"
                 rows={3}
-                defaultValue={question.options?.choices?.join("\n") ?? ""}
+                defaultValue={mcqOptions?.choices?.join("\n") ?? ""}
                 className="rounded border border-gray-300 px-3 py-2"
               />
             </label>
@@ -113,6 +141,31 @@ export default function QuestionEditor({
               <input
                 name="mcq_correct"
                 defaultValue={typeof question.correct_answer === "string" ? question.correct_answer : ""}
+                className="rounded border border-gray-300 px-3 py-2"
+              />
+            </label>
+          </div>
+        )}
+
+        {type === "mcq_multi" && (
+          <div className="flex flex-col gap-2 rounded bg-gray-50 p-3">
+            <label className="flex flex-col gap-1 text-sm">
+              Pilihan jawaban (satu per baris)
+              <textarea
+                name="choices"
+                rows={3}
+                defaultValue={mcqOptions?.choices?.join("\n") ?? ""}
+                className="rounded border border-gray-300 px-3 py-2"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              Jawaban benar (satu per baris, harus sama persis dengan pilihan di atas)
+              <textarea
+                name="mcq_multi_correct"
+                rows={2}
+                defaultValue={
+                  Array.isArray(question.correct_answer) ? question.correct_answer.join("\n") : ""
+                }
                 className="rounded border border-gray-300 px-3 py-2"
               />
             </label>
@@ -158,9 +211,56 @@ export default function QuestionEditor({
           </label>
         )}
 
+        {type === "matching" && (
+          <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
+            Pasangan (format: Kiri = Kanan, satu per baris)
+            <textarea
+              name="matching_pairs"
+              rows={4}
+              placeholder={"Ibukota Indonesia = Jakarta\nIbukota Malaysia = Kuala Lumpur"}
+              defaultValue={
+                matchingOptions?.pairs?.map((p) => `${p.left} = ${p.right}`).join("\n") ?? ""
+              }
+              className="rounded border border-gray-300 px-3 py-2"
+            />
+          </label>
+        )}
+
+        {type === "ordering" && (
+          <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
+            Urutan yang benar (satu item per baris, dari atas ke bawah)
+            <textarea
+              name="ordering_items"
+              rows={4}
+              defaultValue={orderingOptions?.items?.join("\n") ?? ""}
+              className="rounded border border-gray-300 px-3 py-2"
+            />
+          </label>
+        )}
+
+        {type === "fill_blank" && (
+          <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
+            Jawaban tiap bagian kosong (satu per baris, urut sesuai posisi ___ di pertanyaan)
+            <textarea
+              name="fill_blank_answers"
+              rows={3}
+              defaultValue={
+                Array.isArray(question.correct_answer) ? question.correct_answer.join("\n") : ""
+              }
+              className="rounded border border-gray-300 px-3 py-2"
+            />
+          </label>
+        )}
+
         {type === "essay" && (
           <p className="rounded bg-gray-50 p-3 text-sm text-gray-500">
             Esai dinilai manual oleh tutor setelah murid submit.
+          </p>
+        )}
+
+        {type === "upload_file" && (
+          <p className="rounded bg-gray-50 p-3 text-sm text-gray-500">
+            Murid mengunggah gambar/file sebagai jawaban; dinilai manual oleh tutor.
           </p>
         )}
 

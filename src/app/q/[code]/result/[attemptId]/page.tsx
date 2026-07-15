@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Attempt, Question } from "@/lib/types";
+import type { Attempt, Question, QuizSettings } from "@/lib/types";
 
 export default async function AttemptResultPage({
   params,
@@ -12,7 +12,7 @@ export default async function AttemptResultPage({
 
   const { data: attempt } = await supabase
     .from("attempts")
-    .select("*")
+    .select("*, quizzes(settings)")
     .eq("id", attemptId)
     .single();
 
@@ -29,7 +29,10 @@ export default async function AttemptResultPage({
   );
 
   const typedAttempt = attempt as Attempt;
+  const settings = ((attempt as unknown as { quizzes: { settings: Partial<QuizSettings> } }).quizzes
+    ?.settings ?? {}) as Partial<QuizSettings>;
   const hasPendingGrading = typedAttempt.total_score === null;
+  const showScore = settings.show_score_immediately ?? true;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -37,7 +40,11 @@ export default async function AttemptResultPage({
       <p className="mt-1 text-gray-500">Jawabanmu sudah terkirim.</p>
 
       <div className="mt-6 rounded border border-gray-200 p-6 text-center">
-        {hasPendingGrading ? (
+        {!showScore ? (
+          <p className="text-lg font-medium text-gray-600">
+            Skor akan diumumkan oleh tutor.
+          </p>
+        ) : hasPendingGrading ? (
           <p className="text-lg font-medium text-yellow-700">
             Sebagian soal (esai) menunggu penilaian tutor.
           </p>

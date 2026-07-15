@@ -33,11 +33,16 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-semibold">Kuis Saya</h1>
           <p className="text-sm text-gray-500">{user?.email}</p>
         </div>
-        <form action={logout}>
-          <button type="submit" className="text-sm text-gray-500 underline">
-            Keluar
-          </button>
-        </form>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/classes" className="text-sm font-medium underline">
+            Kelas
+          </Link>
+          <form action={logout}>
+            <button type="submit" className="text-sm text-gray-500 underline">
+              Keluar
+            </button>
+          </form>
+        </div>
       </div>
 
       <form action={createQuiz} className="mb-6">

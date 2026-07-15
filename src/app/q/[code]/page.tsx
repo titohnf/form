@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Question, Quiz } from "@/lib/types";
+import type { McqOptions, Question, Quiz, QuizSettings } from "@/lib/types";
 import QuizForm from "./QuizForm";
-import { submitAttempt } from "./actions";
+
+function shuffle<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
 
 export default async function PublicQuizPage({
   params,
@@ -17,31 +20,77 @@ export default async function PublicQuizPage({
 
   const { data: quiz } = await supabase
     .from("quizzes")
-    .select("id, title, description, status")
+    .select("id, title, description, status, settings, class_id")
     .eq("share_code", code)
     .eq("status", "published")
     .single();
 
   if (!quiz) notFound();
 
+  const typedQuiz = quiz as Pick<Quiz, "id" | "title" | "description" | "status" | "settings" | "class_id">;
+  const settings = (typedQuiz.settings ?? {}) as Partial<QuizSettings>;
+  const now = new Date();
+
+  const notYetOpen = settings.opens_at && now < new Date(settings.opens_at);
+  const alreadyClosed = settings.closes_at && now > new Date(settings.closes_at);
+
   const { data: questions } = await supabase
     .from("questions")
     .select("id, quiz_id, type, prompt, options, weight, order_index")
-    .eq("quiz_id", quiz.id)
+    .eq("quiz_id", typedQuiz.id)
     .order("order_index", { ascending: true });
 
-  const boundSubmit = submitAttempt.bind(null, code);
+  let orderedQuestions = (questions ?? []) as Question[];
+  if (settings.shuffle_questions) {
+    orderedQuestions = shuffle(orderedQuestions);
+  }
+  if (settings.shuffle_choices) {
+    orderedQuestions = orderedQuestions.map((q) => {
+      if (q.type === "mcq_single" || q.type === "mcq_multi") {
+        const opts = q.options as McqOptions | null;
+        if (opts?.choices) {
+          return { ...q, options: { choices: shuffle(opts.choices) } };
+        }
+      }
+      return q;
+    });
+  }
+
+  const students = typedQuiz.class_id
+    ? (
+        await supabase
+          .from("students")
+          .select("id, name")
+          .eq("class_id", typedQuiz.class_id)
+          .order("name")
+      ).data ?? []
+    : [];
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="text-2xl font-semibold">{(quiz as Quiz).title}</h1>
-      {quiz.description && <p className="mt-1 text-gray-500">{quiz.description}</p>}
+      <h1 className="text-2xl font-semibold">{typedQuiz.title}</h1>
+      {typedQuiz.description && <p className="mt-1 text-gray-500">{typedQuiz.description}</p>}
 
       {error && <p className="mt-4 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
-      <div className="mt-6">
-        <QuizForm questions={(questions ?? []) as Question[]} action={boundSubmit} />
-      </div>
+      {notYetOpen ? (
+        <p className="mt-6 rounded bg-yellow-50 p-4 text-sm text-yellow-700">
+          Kuis ini belum dibuka. Coba lagi nanti.
+        </p>
+      ) : alreadyClosed ? (
+        <p className="mt-6 rounded bg-yellow-50 p-4 text-sm text-yellow-700">
+          Kuis ini sudah ditutup.
+        </p>
+      ) : (
+        <div className="mt-6">
+          <QuizForm
+            quizId={typedQuiz.id}
+            shareCode={code}
+            questions={orderedQuestions}
+            students={students}
+          />
+        </div>
+      )}
     </div>
   );
 }
