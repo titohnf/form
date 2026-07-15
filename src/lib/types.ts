@@ -31,6 +31,12 @@ export interface OrderingOptions {
 /** Shape of `questions.options` — varies by `type`, see per-type interfaces above. */
 export type QuestionOptions = McqOptions | MatchingOptions | OrderingOptions | null;
 
+/** Sentinel value in `Question.branching` meaning "submit the quiz now" instead of jumping to another question. */
+export const BRANCH_END = "__END__";
+
+/** Maps an answer value (for mcq_single/true_false) to a target question id, or BRANCH_END. Unmapped answers fall through to the next question by order_index. */
+export type Branching = Record<string, string>;
+
 export interface Question {
   id: string;
   quiz_id: string;
@@ -40,6 +46,7 @@ export interface Question {
   correct_answer: unknown;
   weight: number;
   order_index: number;
+  branching: Branching | null;
 }
 
 export interface QuizSettings {
@@ -50,6 +57,7 @@ export interface QuizSettings {
   max_attempts: number | null;
   opens_at: string | null;
   closes_at: string | null;
+  sequential_mode: boolean;
 }
 
 export const defaultQuizSettings: QuizSettings = {
@@ -60,6 +68,7 @@ export const defaultQuizSettings: QuizSettings = {
   max_attempts: null,
   opens_at: null,
   closes_at: null,
+  sequential_mode: false,
 };
 
 export interface Quiz {

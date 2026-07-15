@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Answer, Attempt, Question, Quiz } from "@/lib/types";
+import { rankAttempts, computeBadges } from "@/lib/gamification";
 
 export default async function QuizResultsPage({
   params,
@@ -49,6 +50,8 @@ export default async function QuizResultsPage({
     return { question, accuracy, answeredCount: relevant.length };
   });
 
+  const ranked = rankAttempts(typedAttempts);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <Link href={`/dashboard/quizzes/${id}/edit`} className="text-sm text-gray-500 underline">
@@ -78,6 +81,29 @@ export default async function QuizResultsPage({
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {ranked.length > 0 && (
+        <div className="mb-8 rounded border border-gray-200 p-4">
+          <h2 className="mb-3 text-sm font-medium text-gray-500">🏆 Leaderboard</h2>
+          <div className="flex flex-col gap-1">
+            {ranked.slice(0, 10).map(({ attempt, rank }) => {
+              const badges = computeBadges(attempt, totalWeight, ranked);
+              return (
+                <div key={attempt.id} className="flex items-center gap-3 text-sm">
+                  <span className="w-6 text-gray-400">#{rank}</span>
+                  <span className="flex-1">{attempt.guest_name}</span>
+                  {badges.map((b) => (
+                    <span key={b.label} title={b.label}>
+                      {b.emoji}
+                    </span>
+                  ))}
+                  <span className="font-medium">{attempt.total_score} / {totalWeight}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

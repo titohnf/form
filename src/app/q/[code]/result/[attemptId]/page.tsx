@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Attempt, Question, QuizSettings } from "@/lib/types";
+import { rankAttempts, computeBadges } from "@/lib/gamification";
 
 export default async function AttemptResultPage({
   params,
@@ -34,6 +35,18 @@ export default async function AttemptResultPage({
   const hasPendingGrading = typedAttempt.total_score === null;
   const showScore = settings.show_score_immediately ?? true;
 
+  let rank: number | null = null;
+  let badges: { emoji: string; label: string }[] = [];
+  if (showScore && !hasPendingGrading) {
+    const { data: allAttempts } = await supabase
+      .from("attempts")
+      .select("*")
+      .eq("quiz_id", typedAttempt.quiz_id);
+    const ranked = rankAttempts((allAttempts ?? []) as Attempt[]);
+    rank = ranked.find((r) => r.attempt.id === typedAttempt.id)?.rank ?? null;
+    badges = computeBadges(typedAttempt, totalWeight, ranked);
+  }
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
       <h1 className="text-2xl font-semibold">Terima kasih, {typedAttempt.guest_name}!</h1>
@@ -54,6 +67,16 @@ export default async function AttemptResultPage({
             <p className="text-4xl font-semibold">
               {typedAttempt.total_score} / {totalWeight}
             </p>
+            {rank && <p className="mt-1 text-sm text-gray-500">Peringkat #{rank}</p>}
+            {badges.length > 0 && (
+              <p className="mt-2 text-2xl">
+                {badges.map((b) => (
+                  <span key={b.label} title={b.label}>
+                    {b.emoji}
+                  </span>
+                ))}
+              </p>
+            )}
           </>
         )}
       </div>

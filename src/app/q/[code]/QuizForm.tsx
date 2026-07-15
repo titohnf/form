@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { MatchingOptions, McqOptions, OrderingOptions, Question } from "@/lib/types";
+import type { Branching, MatchingOptions, McqOptions, OrderingOptions, Question } from "@/lib/types";
+import { BRANCH_END } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
+import { MathText } from "@/lib/latex";
 import { startAttempt, saveAnswer, finalizeAttempt } from "./actions";
 
 interface Student {
@@ -10,16 +12,33 @@ interface Student {
   name: string;
 }
 
+function resolveNext(
+  question: Question,
+  response: unknown,
+  questions: Question[],
+): string | null {
+  const branching = question.branching as Branching | null;
+  const target = branching?.[String(response)];
+  if (target === BRANCH_END) return null;
+  if (target) return target;
+
+  const currentIndex = questions.findIndex((q) => q.id === question.id);
+  const next = questions[currentIndex + 1];
+  return next ? next.id : null;
+}
+
 export default function QuizForm({
   quizId,
   shareCode,
   questions,
   students,
+  sequential,
 }: {
   quizId: string;
   shareCode: string;
   questions: Question[];
   students: Student[];
+  sequential: boolean;
 }) {
   const [step, setStep] = useState<"name" | "quiz" | "submitting">("name");
   const [guestName, setGuestName] = useState("");
@@ -27,6 +46,8 @@ export default function QuizForm({
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
+  const [currentId, setCurrentId] = useState<string | null>(questions[0]?.id ?? null);
+  const [visited, setVisited] = useState(1);
 
   async function handleStart() {
     const name = students.length > 0 ? students.find((s) => s.id === studentId)?.name ?? "" : guestName.trim();
@@ -55,6 +76,16 @@ export default function QuizForm({
     if (!attemptId) return;
     setStep("submitting");
     await finalizeAttempt(shareCode, attemptId);
+  }
+
+  function handleNext(question: Question) {
+    const nextId = resolveNext(question, responses[question.id], questions);
+    if (nextId) {
+      setCurrentId(nextId);
+      setVisited((v) => v + 1);
+    } else {
+      handleSubmit();
+    }
   }
 
   if (step === "name") {
@@ -99,6 +130,36 @@ export default function QuizForm({
     );
   }
 
+  if (sequential) {
+    const question = questions.find((q) => q.id === currentId);
+    if (!question) {
+      return (
+        <p className="rounded bg-yellow-50 p-4 text-sm text-yellow-700">
+          Tidak ada soal untuk ditampilkan.
+        </p>
+      );
+    }
+    return (
+      <div className="flex flex-col gap-6">
+        <p className="text-xs text-gray-400">Soal ke-{visited}</p>
+        <QuestionInput
+          question={question}
+          index={visited - 1}
+          value={responses[question.id]}
+          onChange={(value) => handleAnswer(question.id, value, questions.indexOf(question))}
+        />
+        <button
+          type="button"
+          disabled={step === "submitting"}
+          onClick={() => handleNext(question)}
+          className="rounded bg-black px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+        >
+          {step === "submitting" ? "Mengirim…" : "Lanjut →"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {questions.map((question, index) => (
@@ -136,9 +197,12 @@ function QuestionInput({
 }) {
   return (
     <fieldset className="rounded border border-gray-200 p-4">
-      <legend className="px-1 text-sm font-medium">
-        {index + 1}. {question.prompt}
-      </legend>
+      <legend className="px-1 text-sm font-medium">Soal {index + 1}</legend>
+      {question.type !== "fill_blank" && (
+        <p className="text-sm font-medium">
+          <MathText text={question.prompt} />
+        </p>
+      )}
 
       {question.type === "mcq_single" && (
         <div className="mt-2 flex flex-col gap-2">
@@ -150,7 +214,7 @@ function QuestionInput({
                 checked={value === choice}
                 onChange={() => onChange(choice)}
               />
-              {choice}
+              <MathText text={choice} />
             </label>
           ))}
         </div>
@@ -173,7 +237,7 @@ function QuestionInput({
                     )
                   }
                 />
-                {choice}
+                <MathText text={choice} />
               </label>
             );
           })}
@@ -248,7 +312,9 @@ function MatchingInput({
     <div className="mt-2 flex flex-col gap-2">
       {pairs.map((pair) => (
         <div key={pair.left} className="flex items-center gap-2 text-sm">
-          <span className="flex-1">{pair.left}</span>
+          <span className="flex-1">
+            <MathText text={pair.left} />
+          </span>
           <select
             value={mapping[pair.left] ?? ""}
             onChange={(e) => onChange({ ...mapping, [pair.left]: e.target.value })}
@@ -296,7 +362,7 @@ function OrderingInput({
       {order.map((item, i) => (
         <div key={item} className="flex items-center gap-2 rounded border border-gray-200 px-2 py-1 text-sm">
           <span className="flex-1">
-            {i + 1}. {item}
+            {i + 1}. <MathText text={item} />
           </span>
           <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="text-xs disabled:opacity-30">
             ▲
@@ -337,7 +403,7 @@ function FillBlankInput({
     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
       {parts.map((part, i) => (
         <span key={i} className="flex items-center gap-2">
-          {part}
+          <MathText text={part} />
           {i < parts.length - 1 && (
             <input
               defaultValue={blanks[i] ?? ""}

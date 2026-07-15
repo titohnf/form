@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { QuestionType, QuestionOptions, QuizSettings } from "@/lib/types";
+import type { Branching, QuestionType, QuestionOptions, QuizSettings } from "@/lib/types";
 
 export async function updateQuizMeta(quizId: string, formData: FormData) {
   const supabase = await createClient();
@@ -29,6 +29,7 @@ export async function updateQuizSettings(quizId: string, formData: FormData) {
     max_attempts: maxAttempts ? Number(maxAttempts) : null,
     opens_at: opensAt ? new Date(opensAt).toISOString() : null,
     closes_at: closesAt ? new Date(closesAt).toISOString() : null,
+    sequential_mode: formData.get("sequential_mode") === "on",
   };
 
   await supabase.from("quizzes").update({ settings }).eq("id", quizId);
@@ -65,10 +66,23 @@ function parseQuestionFields(formData: FormData): {
   weight: number;
   options: QuestionOptions;
   correctAnswer: unknown;
+  branching: Branching | null;
 } {
   const type = String(formData.get("type")) as QuestionType;
   const prompt = String(formData.get("prompt") ?? "").trim();
   const weight = Number(formData.get("weight")) || 1;
+
+  const branchingRaw = String(formData.get("branching_json") ?? "");
+  let branching: Branching | null = null;
+  if (branchingRaw) {
+    try {
+      const parsed = JSON.parse(branchingRaw) as Branching;
+      branching = Object.fromEntries(Object.entries(parsed).filter(([, v]) => v));
+      if (Object.keys(branching).length === 0) branching = null;
+    } catch {
+      branching = null;
+    }
+  }
 
   let options: QuestionOptions = null;
   let correctAnswer: unknown = null;
@@ -115,16 +129,16 @@ function parseQuestionFields(formData: FormData): {
   }
   // essay / upload_file: no options or correct_answer
 
-  return { type, prompt, weight, options, correctAnswer };
+  return { type, prompt, weight, options, correctAnswer, branching };
 }
 
 export async function updateQuestion(quizId: string, questionId: string, formData: FormData) {
   const supabase = await createClient();
-  const { type, prompt, weight, options, correctAnswer } = parseQuestionFields(formData);
+  const { type, prompt, weight, options, correctAnswer, branching } = parseQuestionFields(formData);
 
   await supabase
     .from("questions")
-    .update({ type, prompt, weight, options, correct_answer: correctAnswer })
+    .update({ type, prompt, weight, options, correct_answer: correctAnswer, branching })
     .eq("id", questionId);
 
   revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
@@ -194,6 +208,36 @@ export async function addFromBank(quizId: string, nextOrderIndex: number, bankIt
     order_index: nextOrderIndex,
     ...item,
   });
+
+  revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
+}
+
+export interface GeneratedQuestionInput {
+  prompt: string;
+  choices: string[];
+  correct_answer: string;
+  weight: number;
+}
+
+export async function addGeneratedQuestions(
+  quizId: string,
+  nextOrderIndex: number,
+  questions: GeneratedQuestionInput[],
+) {
+  const supabase = await createClient();
+  const rows = questions.map((q, i) => ({
+    quiz_id: quizId,
+    type: "mcq_single" as QuestionType,
+    prompt: q.prompt,
+    options: { choices: q.choices },
+    correct_answer: q.correct_answer,
+    weight: q.weight || 1,
+    order_index: nextOrderIndex + i,
+  }));
+
+  if (rows.length > 0) {
+    await supabase.from("questions").insert(rows);
+  }
 
   revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
 }

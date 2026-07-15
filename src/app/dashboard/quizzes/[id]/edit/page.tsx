@@ -8,6 +8,7 @@ import { publishQuiz, deleteQuiz } from "../../../actions";
 import { updateQuizMeta, addQuestion, updateQuizSettings, assignClass, addFromBank } from "./actions";
 import QuestionEditor from "./QuestionEditor";
 import QuestionBankPicker from "./QuestionBankPicker";
+import AiGenerator from "./AiGenerator";
 
 export default async function EditQuizPage({
   params,
@@ -195,6 +196,10 @@ export default async function EditQuizPage({
             />
             Izinkan murid melihat skor langsung setelah submit
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="sequential_mode" defaultChecked={settings.sequential_mode} />
+            Mode satu soal per halaman (wajib untuk percabangan soal)
+          </label>
           <button
             type="submit"
             className="self-start rounded bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700"
@@ -228,6 +233,15 @@ export default async function EditQuizPage({
         </form>
       </details>
 
+      <details className="mb-8 rounded border border-gray-200 p-4">
+        <summary className="cursor-pointer text-sm font-medium">
+          ✨ Generate Soal dengan AI (butuh ANTHROPIC_API_KEY di .env.local)
+        </summary>
+        <div className="mt-4">
+          <AiGenerator quizId={id} nextOrderIndex={nextOrderIndex} />
+        </div>
+      </details>
+
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Soal ({typedQuestions.length})</h2>
         <Link
@@ -246,6 +260,8 @@ export default async function EditQuizPage({
             question={question}
             index={index}
             total={typedQuestions.length}
+            sequentialMode={settings.sequential_mode ?? false}
+            otherQuestions={typedQuestions.map((q) => ({ id: q.id, prompt: q.prompt }))}
           />
         ))}
       </div>

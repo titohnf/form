@@ -36,12 +36,14 @@ export default async function PublicQuizPage({
 
   const { data: questions } = await supabase
     .from("questions")
-    .select("id, quiz_id, type, prompt, options, weight, order_index")
+    .select("id, quiz_id, type, prompt, options, weight, order_index, branching")
     .eq("quiz_id", typedQuiz.id)
     .order("order_index", { ascending: true });
 
   let orderedQuestions = (questions ?? []) as Question[];
-  if (settings.shuffle_questions) {
+  // Shuffling questions would break branching's order_index-based fallback, so it's ignored
+  // in sequential mode (a quiz author using branching wants a deliberate path).
+  if (settings.shuffle_questions && !settings.sequential_mode) {
     orderedQuestions = shuffle(orderedQuestions);
   }
   if (settings.shuffle_choices) {
@@ -88,6 +90,7 @@ export default async function PublicQuizPage({
             shareCode={code}
             questions={orderedQuestions}
             students={students}
+            sequential={settings.sequential_mode ?? false}
           />
         </div>
       )}
