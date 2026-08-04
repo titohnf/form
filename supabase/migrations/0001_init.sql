@@ -57,17 +57,20 @@ alter table attempts enable row level security;
 alter table answers enable row level security;
 
 -- Tutors manage only their own quizzes.
+drop policy if exists "tutor manages own quizzes" on quizzes;
 create policy "tutor manages own quizzes" on quizzes
   for all
   using (auth.uid() = tutor_id)
   with check (auth.uid() = tutor_id);
 
 -- Anyone (anon guests) can read a published quiz's public shape by share_code.
+drop policy if exists "public can read published quizzes" on quizzes;
 create policy "public can read published quizzes" on quizzes
   for select
   using (status = 'published');
 
 -- Tutors manage questions that belong to their own quizzes.
+drop policy if exists "tutor manages own questions" on questions;
 create policy "tutor manages own questions" on questions
   for all
   using (exists (select 1 from quizzes q where q.id = questions.quiz_id and q.tutor_id = auth.uid()))
@@ -75,30 +78,36 @@ create policy "tutor manages own questions" on questions
 
 -- Guests may read questions of a published quiz (needed to render the form),
 -- but correct_answer is stripped out at the application layer via a view.
+drop policy if exists "public can read questions of published quizzes" on questions;
 create policy "public can read questions of published quizzes" on questions
   for select
   using (exists (select 1 from quizzes q where q.id = questions.quiz_id and q.status = 'published'));
 
 -- Tutors can read attempts/answers for their own quizzes.
+drop policy if exists "tutor reads own quiz attempts" on attempts;
 create policy "tutor reads own quiz attempts" on attempts
   for select
   using (exists (select 1 from quizzes q where q.id = attempts.quiz_id and q.tutor_id = auth.uid()));
 
+drop policy if exists "tutor updates own quiz attempts" on attempts;
 create policy "tutor updates own quiz attempts" on attempts
   for update
   using (exists (select 1 from quizzes q where q.id = attempts.quiz_id and q.tutor_id = auth.uid()));
 
 -- Guests (anon) can create an attempt against a published quiz.
+drop policy if exists "public can create attempts on published quizzes" on attempts;
 create policy "public can create attempts on published quizzes" on attempts
   for insert
   with check (exists (select 1 from quizzes q where q.id = attempts.quiz_id and q.status = 'published'));
 
 -- Guests can read back their own attempt to show a confirmation/score screen
 -- (client only ever queries by the specific attempt id it just created).
+drop policy if exists "public can read attempts" on attempts;
 create policy "public can read attempts" on attempts
   for select
   using (true);
 
+drop policy if exists "tutor reads own quiz answers" on answers;
 create policy "tutor reads own quiz answers" on answers
   for select
   using (exists (
@@ -106,6 +115,7 @@ create policy "tutor reads own quiz answers" on answers
     where a.id = answers.attempt_id and q.tutor_id = auth.uid()
   ));
 
+drop policy if exists "tutor updates own quiz answers" on answers;
 create policy "tutor updates own quiz answers" on answers
   for update
   using (exists (
@@ -113,6 +123,7 @@ create policy "tutor updates own quiz answers" on answers
     where a.id = answers.attempt_id and q.tutor_id = auth.uid()
   ));
 
+drop policy if exists "public can insert answers for published quizzes" on answers;
 create policy "public can insert answers for published quizzes" on answers
   for insert
   with check (exists (
@@ -120,6 +131,7 @@ create policy "public can insert answers for published quizzes" on answers
     where a.id = answers.attempt_id and q.status = 'published'
   ));
 
+drop policy if exists "public can read own submitted answers" on answers;
 create policy "public can read own submitted answers" on answers
   for select
   using (true);
