@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MathText } from "@/lib/latex";
 import { addGeneratedQuestions, type GeneratedQuestionInput } from "./actions";
 
 export default function AiGenerator({
@@ -120,11 +121,13 @@ export default function AiGenerator({
             <label key={i} className="flex items-start gap-2 rounded border border-gray-200 bg-white p-2 text-sm">
               <input type="checkbox" checked={selected.has(i)} onChange={() => toggle(i)} className="mt-1" />
               <div>
-                <p className="font-medium">{q.prompt}</p>
+                <p className="font-medium">
+                  <MathText text={q.prompt} />
+                </p>
                 <ul className="mt-1 list-disc pl-5 text-gray-500">
                   {q.choices.map((c) => (
                     <li key={c} className={c === q.correct_answer ? "font-medium text-green-700" : ""}>
-                      {c}
+                      <MathText text={c} />
                     </li>
                   ))}
                 </ul>

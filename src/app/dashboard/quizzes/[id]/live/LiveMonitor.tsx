@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Answer, Attempt, Question } from "@/lib/types";
+import { MathText } from "@/lib/latex";
 import { saveTutorFeedback } from "./actions";
 
 const IDLE_THRESHOLD_MS = 2 * 60 * 1000;
@@ -135,9 +136,16 @@ export default function LiveMonitor({
                   const answer = attemptAnswers.find((a) => a.question_id === question.id);
                   return (
                     <div key={question.id} className="rounded bg-gray-50 p-3 text-sm">
-                      <p className="font-medium">{question.prompt}</p>
+                      <p className="font-medium">
+                        <MathText text={question.prompt} />
+                      </p>
                       <p className="mt-1 text-gray-600">
-                        Jawaban: {answer ? String(answer.response ?? "-") : <em className="text-gray-400">belum dijawab</em>}
+                        Jawaban:{" "}
+                        {answer ? (
+                          <MathText text={String(answer.response ?? "-")} />
+                        ) : (
+                          <em className="text-gray-400">belum dijawab</em>
+                        )}
                       </p>
                       {answer && (
                         <FeedbackField answerId={answer.id} initial={answer.tutor_feedback ?? ""} />

@@ -20,8 +20,11 @@ Sudah diimplementasikan (Fase 1 MVP + Fase 2 + Fase 3 + sebagian Fase 4):
   jawaban (mcq/benar-salah)
 - **Gamifikasi ringan**: leaderboard per kuis, badge "Skor Sempurna" & "Tercepat" (dihitung saat
   render, tidak disimpan)
-- **LaTeX/Math**: tulis `$x^2$` (inline) atau `$$...$$` (block) di soal/pilihan jawaban, dirender
-  pakai KaTeX di sisi murid
+- **LaTeX/Math**: setiap kolom soal/jawaban punya toolbar simbol (pecahan, akar, pangkat, ×, ÷, ±,
+  ≤, ≥, ≠, π, °, Σ) yang menyisipkan LaTeX di posisi kursor, plus pratinjau langsung di bawah
+  kolom — tutor tidak perlu hafal sintaks. Bisa juga diketik manual: `$x^2$` (inline) atau
+  `$$...$$` (satu baris sendiri). Dirender pakai KaTeX di sisi murid maupun di halaman tutor
+  (hasil, koreksi, live monitoring, review draf AI)
 - **Generate Soal dengan AI**: tutor paste materi teks atau upload PDF di halaman edit kuis, AI
   bikin draf soal pilihan ganda untuk direview sebelum ditambahkan — **butuh `ANTHROPIC_API_KEY`
   milik sendiri**, lihat Setup

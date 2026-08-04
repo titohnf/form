@@ -10,6 +10,7 @@ import type {
   QuestionType,
 } from "@/lib/types";
 import { BRANCH_END } from "@/lib/types";
+import MathField from "@/lib/MathField";
 import { updateQuestion, deleteQuestion, moveQuestion, saveToBank } from "./actions";
 
 const typeLabel: Record<QuestionType, string> = {
@@ -91,18 +92,19 @@ export default function QuestionEditor({
       <form action={boundUpdate} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-sm">
           Pertanyaan
-          <textarea
+          <MathField
             name="prompt"
             defaultValue={question.prompt}
             required
             rows={2}
-            className="rounded border border-gray-300 px-3 py-2"
+            hint={
+              type === "fill_blank" ? (
+                <span className="text-xs text-gray-400">
+                  Tandai bagian kosong dengan tiga garis bawah, contoh: Ibukota Indonesia adalah ___.
+                </span>
+              ) : undefined
+            }
           />
-          {type === "fill_blank" && (
-            <span className="text-xs text-gray-400">
-              Tandai bagian kosong dengan tiga garis bawah, contoh: Ibukota Indonesia adalah ___.
-            </span>
-          )}
         </label>
 
         <div className="flex gap-3">
@@ -138,19 +140,13 @@ export default function QuestionEditor({
           <div className="flex flex-col gap-2 rounded bg-gray-50 p-3">
             <label className="flex flex-col gap-1 text-sm">
               Pilihan jawaban (satu per baris)
-              <textarea
-                name="choices"
-                rows={3}
-                defaultValue={mcqOptions?.choices?.join("\n") ?? ""}
-                className="rounded border border-gray-300 px-3 py-2"
-              />
+              <MathField name="choices" rows={3} defaultValue={mcqOptions?.choices?.join("\n") ?? ""} />
             </label>
             <label className="flex flex-col gap-1 text-sm">
               Jawaban benar (harus sama persis dengan salah satu pilihan)
-              <input
+              <MathField
                 name="mcq_correct"
                 defaultValue={typeof question.correct_answer === "string" ? question.correct_answer : ""}
-                className="rounded border border-gray-300 px-3 py-2"
               />
             </label>
           </div>
@@ -160,22 +156,16 @@ export default function QuestionEditor({
           <div className="flex flex-col gap-2 rounded bg-gray-50 p-3">
             <label className="flex flex-col gap-1 text-sm">
               Pilihan jawaban (satu per baris)
-              <textarea
-                name="choices"
-                rows={3}
-                defaultValue={mcqOptions?.choices?.join("\n") ?? ""}
-                className="rounded border border-gray-300 px-3 py-2"
-              />
+              <MathField name="choices" rows={3} defaultValue={mcqOptions?.choices?.join("\n") ?? ""} />
             </label>
             <label className="flex flex-col gap-1 text-sm">
               Jawaban benar (satu per baris, harus sama persis dengan pilihan di atas)
-              <textarea
+              <MathField
                 name="mcq_multi_correct"
                 rows={2}
                 defaultValue={
                   Array.isArray(question.correct_answer) ? question.correct_answer.join("\n") : ""
                 }
-                className="rounded border border-gray-300 px-3 py-2"
               />
             </label>
           </div>
@@ -210,12 +200,11 @@ export default function QuestionEditor({
         {type === "short_answer" && (
           <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
             Kunci jawaban (pisahkan dengan koma jika ada beberapa variasi)
-            <input
+            <MathField
               name="short_answer_keys"
               defaultValue={
                 Array.isArray(question.correct_answer) ? question.correct_answer.join(", ") : ""
               }
-              className="rounded border border-gray-300 px-3 py-2"
             />
           </label>
         )}
@@ -223,14 +212,13 @@ export default function QuestionEditor({
         {type === "matching" && (
           <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
             Pasangan (format: Kiri = Kanan, satu per baris)
-            <textarea
+            <MathField
               name="matching_pairs"
               rows={4}
               placeholder={"Ibukota Indonesia = Jakarta\nIbukota Malaysia = Kuala Lumpur"}
               defaultValue={
                 matchingOptions?.pairs?.map((p) => `${p.left} = ${p.right}`).join("\n") ?? ""
               }
-              className="rounded border border-gray-300 px-3 py-2"
             />
           </label>
         )}
@@ -238,11 +226,10 @@ export default function QuestionEditor({
         {type === "ordering" && (
           <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
             Urutan yang benar (satu item per baris, dari atas ke bawah)
-            <textarea
+            <MathField
               name="ordering_items"
               rows={4}
               defaultValue={orderingOptions?.items?.join("\n") ?? ""}
-              className="rounded border border-gray-300 px-3 py-2"
             />
           </label>
         )}
@@ -250,13 +237,12 @@ export default function QuestionEditor({
         {type === "fill_blank" && (
           <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
             Jawaban tiap bagian kosong (satu per baris, urut sesuai posisi ___ di pertanyaan)
-            <textarea
+            <MathField
               name="fill_blank_answers"
               rows={3}
               defaultValue={
                 Array.isArray(question.correct_answer) ? question.correct_answer.join("\n") : ""
               }
-              className="rounded border border-gray-300 px-3 py-2"
             />
           </label>
         )}

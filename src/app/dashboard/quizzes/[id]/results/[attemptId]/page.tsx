@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Attempt, Question } from "@/lib/types";
+import { MathText } from "@/lib/latex";
 import { gradeEssayAnswer } from "./actions";
 
 interface AnswerRow {
@@ -52,9 +53,14 @@ export default async function AttemptDetailPage({
           const boundGrade = gradeEssayAnswer.bind(null, id, attemptId, answer.id);
           return (
             <div key={answer.id} className="rounded border border-gray-200 p-4">
-              <p className="font-medium">{answer.questions.prompt}</p>
+              <p className="font-medium">
+                <MathText text={answer.questions.prompt} />
+              </p>
               <p className="mt-1 text-sm text-gray-600">
-                Jawaban: <span className="font-medium">{String(answer.response ?? "-")}</span>
+                Jawaban:{" "}
+                <span className="font-medium">
+                  <MathText text={String(answer.response ?? "-")} />
+                </span>
               </p>
 
               {answer.needs_manual_grading ? (

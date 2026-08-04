@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Answer, Attempt, Question, Quiz } from "@/lib/types";
 import { rankAttempts, computeBadges } from "@/lib/gamification";
+import { MathText } from "@/lib/latex";
 
 export default async function QuizResultsPage({
   params,
@@ -75,7 +76,9 @@ export default async function QuizResultsPage({
             {perQuestionStats.map(({ question, accuracy, answeredCount }, i) => (
               <div key={question.id} className="flex items-center gap-3 text-sm">
                 <span className="w-6 text-gray-400">{i + 1}.</span>
-                <span className="flex-1 truncate">{question.prompt}</span>
+                <span className="flex-1 truncate">
+                  <MathText text={question.prompt} />
+                </span>
                 <span className="text-gray-500">
                   {accuracy === null ? "belum ada data" : `${accuracy}% benar (${answeredCount} jawaban)`}
                 </span>
