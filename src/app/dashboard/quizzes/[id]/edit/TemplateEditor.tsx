@@ -6,6 +6,7 @@ import { generate, templateIssue, type QuestionTemplate } from "@/lib/question-t
 import type { QuestionOptions } from "@/lib/types";
 
 const EMPTY: QuestionTemplate = {
+  prompt: "",
   params: [{ name: "a", min: 2, max: 9 }],
   constraints: [],
   answer: "a",
@@ -42,18 +43,22 @@ export default function TemplateEditor({
   options,
   value,
   onChange,
+  onApply,
 }: {
+  /** Pertanyaan soal saat ini, dipakai sebagai titik awal teks bertemplat. */
   prompt: string;
   options: QuestionOptions;
   value: QuestionTemplate | null;
   onChange: (template: QuestionTemplate | null) => void;
+  /** Menulis varian ke soalnya: pertanyaan, pilihan, dan kunci sekaligus. */
+  onApply: (variant: { prompt: string; choices: string[]; correct: string }) => void;
 }) {
   const [preview, setPreview] = useState<{ prompt: string; choices: string[]; key: string } | null>(
     null,
   );
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const issue = useMemo(() => (value ? templateIssue(value, prompt) : null), [value, prompt]);
+  const issue = useMemo(() => (value ? templateIssue(value) : null), [value]);
 
   function patch(changes: Partial<QuestionTemplate>) {
     onChange({ ...(value ?? EMPTY), ...changes });
@@ -62,7 +67,7 @@ export default function TemplateEditor({
   function draw() {
     if (!value) return;
     try {
-      const variant = generate(value, prompt, options);
+      const variant = generate(value, options);
       setPreview({
         prompt: variant.prompt,
         choices: (variant.options as { choices?: string[] })?.choices ?? [],
@@ -99,13 +104,30 @@ export default function TemplateEditor({
       {!value ? (
         <button
           type="button"
-          onClick={() => onChange(EMPTY)}
+          onClick={() => onChange({ ...EMPTY, prompt })}
           className="mt-3 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-white"
         >
           Jadikan soal berparameter
         </button>
       ) : (
         <div className="mt-3 flex flex-col gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-gray-500">
+              Pertanyaan bertemplat — pakai {"{{rumus}}"} untuk angka yang berubah
+            </span>
+            <textarea
+              value={value.prompt}
+              onChange={(e) => patch({ prompt: e.target.value })}
+              rows={2}
+              placeholder="Berapa {{a * b}} : {{b}} ?"
+              className={field}
+            />
+            <span className="text-xs text-gray-400">
+              Yang dibaca murid adalah pertanyaan di atas kotak ini, bukan yang ini. Tekan
+              &ldquo;Terapkan varian&rdquo; untuk mengisinya dengan salah satu undian.
+            </span>
+          </label>
+
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium text-gray-500">Parameter</span>
             {value.params.map((param, index) => (
@@ -212,6 +234,17 @@ export default function TemplateEditor({
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:border-gray-400"
             >
               Undi contoh
+            </button>
+            <button
+              type="button"
+              disabled={!preview}
+              onClick={() => {
+                if (!preview) return;
+                onApply({ prompt: preview.prompt, choices: preview.choices, correct: preview.key });
+              }}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+            >
+              Terapkan varian ke soal
             </button>
             <button
               type="button"

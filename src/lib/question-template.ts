@@ -15,6 +15,15 @@ import type { McqOptions, Question, QuestionOptions } from "./types";
  * lebih mahal, dan menyulitkan tutor membahas hasilnya di kelas.
  */
 export interface QuestionTemplate {
+  /**
+   * Teks pertanyaan bertemplat, memuat `{{rumus}}`.
+   *
+   * Hidup di sini, bukan di `questions.prompt`, karena `prompt` adalah yang
+   * dibaca murid — dan murid tidak boleh melihat `{{a * b}}`. Soalnya sendiri
+   * selalu berupa varian konkret; templat ini yang melahirkannya, baik saat
+   * penulisnya menekan "Terapkan varian" maupun saat soal disalin ke remedial.
+   */
+  prompt: string;
   /** Nilai acak yang boleh dipakai di `{{...}}` pada pertanyaan dan di rumus. */
   params: { name: string; min: number; max: number; step?: number }[];
   /** Rumus yang harus bernilai benar; varian yang gagal dibuang lalu diundi ulang. */
@@ -72,7 +81,8 @@ function fill(text: string, scope: Record<string, number>, thousands: boolean): 
  * Memeriksa templat tanpa mengubah apa pun, untuk pratinjau di editor.
  * Mengembalikan pesan kesalahan pertama, atau null kalau sehat.
  */
-export function templateIssue(template: QuestionTemplate, prompt: string): string | null {
+export function templateIssue(template: QuestionTemplate): string | null {
+  if (!template.prompt?.trim()) return "Pertanyaan bertemplat masih kosong.";
   if (template.params.length === 0) return "Belum ada parameter.";
 
   for (const param of template.params) {
@@ -81,14 +91,14 @@ export function templateIssue(template: QuestionTemplate, prompt: string): strin
     if (param.step !== undefined && param.step <= 0) return `Langkah ${param.name} harus positif.`;
   }
 
-  if (!PLACEHOLDER.test(prompt)) {
+  if (!PLACEHOLDER.test(template.prompt)) {
     PLACEHOLDER.lastIndex = 0;
-    return "Pertanyaan tidak memuat satu pun {{rumus}}, jadi variannya akan sama semua.";
+    return "Pertanyaan bertemplat tidak memuat satu pun {{rumus}}, jadi variannya akan sama semua.";
   }
   PLACEHOLDER.lastIndex = 0;
 
   try {
-    generate(template, prompt, null);
+    generate(template, null);
   } catch (error) {
     return error instanceof Error ? error.message : "Templat gagal dijalankan.";
   }
@@ -99,11 +109,7 @@ export function templateIssue(template: QuestionTemplate, prompt: string): strin
  * Melahirkan satu varian. `options` dipakai untuk mengetahui berapa pilihan yang
  * harus dihasilkan; null berarti sekadar uji coba di editor.
  */
-export function generate(
-  template: QuestionTemplate,
-  prompt: string,
-  options: QuestionOptions,
-): GeneratedVariant {
+export function generate(template: QuestionTemplate, options: QuestionOptions): GeneratedVariant {
   const thousands = template.thousands ?? false;
 
   for (let draw = 0; draw < MAX_DRAWS; draw += 1) {
@@ -128,7 +134,7 @@ export function generate(
     const choices = values.map((value) => formatNumber(value, thousands));
 
     return {
-      prompt: fill(prompt, scope, thousands),
+      prompt: fill(template.prompt, scope, thousands),
       options: isMcq(options) ? { ...options, choices } : ({ choices } as McqOptions),
       correct_answer: correct,
     };
@@ -159,8 +165,7 @@ export function variantOf(question: Question): Pick<Question, "prompt" | "option
   }
 
   try {
-    const variant = generate(template, question.prompt, question.options);
-    return variant;
+    return generate(template, question.options);
   } catch {
     // Templat rusak tidak boleh menggagalkan pembuatan remedial: soal aslinya
     // masih jauh lebih berguna daripada paket yang tidak jadi.

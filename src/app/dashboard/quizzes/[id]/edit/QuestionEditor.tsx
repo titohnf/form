@@ -676,6 +676,16 @@ export default function QuestionEditor({
             options={toPatch(draft).options}
             value={draft.template}
             onChange={(template) => patchDraft({ template })}
+            // Varian ditulis ke soalnya sendiri, bukan cuma ditampilkan: murid
+            // membaca `prompt`, jadi di situlah angka konkretnya harus mendarat.
+            onApply={({ prompt, choices, correct }) =>
+              patchDraft({
+                prompt,
+                choices,
+                correctChoice: correct,
+                correctChoices: draft.type === "mcq_multi" ? [correct] : draft.correctChoices,
+              })
+            }
           />
         )}
 
