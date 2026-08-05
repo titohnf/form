@@ -4,6 +4,7 @@ import { bySubject, topicLabel } from "@/lib/curriculum";
 import { bloomSpread } from "@/lib/bloom";
 import BankItem from "./BankItem";
 import { NewItemDialog, NewItemInTopic } from "./NewItem";
+import TopicFilter from "./TopicFilter";
 
 /**
  * Sebaran taksonomi satu topik, mis. "C1 2 · C2 3 · C3 3 · C4 2".
@@ -114,33 +115,7 @@ export default async function BankPage({
         )}
       </p>
 
-      <form
-        method="get"
-        className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5"
-      >
-        <select
-          name="topic"
-          defaultValue={topicFilter ?? ""}
-          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        >
-          <option value="">Semua topik</option>
-          {subjects.map((subject) => (
-            <optgroup key={subject.subjectId} label={subject.subjectName}>
-              {subject.groups.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {topicLabel(group)}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <button
-          type="submit"
-          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50"
-        >
-          Filter
-        </button>
-      </form>
+      <TopicFilter subjects={subjects} value={topicFilter ?? ""} />
 
       <div className="flex flex-col gap-5">
         {visibleItems.length === 0 && (
