@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { QuestionPatch } from "@/lib/types";
 
@@ -18,7 +19,21 @@ export async function saveBankItem(itemId: string, patch: QuestionPatch) {
     .eq("id", itemId);
 }
 
-export async function createBankItem() {
+/**
+ * Membuat satu soal kosong di dalam satu topik. Topiknya wajib: soal tanpa topik
+ * tidak pernah muncul di latihan mandiri murid, jadi menanyakannya belakangan
+ * hanya menumpuk soal yang tak terpakai. Penandaan many-to-many-nya tetap bisa
+ * ditambah dari kartunya nanti — yang diminta di sini cuma kamar pertamanya.
+ *
+ * `group` datang dari FormData supaya satu action ini melayani dua pemanggil:
+ * tombol di dalam tiap topik (topik tersirat dari tempat mengklik) dan dialog
+ * di header (untuk topik yang belum punya soal sama sekali, yang karena itu
+ * tidak dirender di daftar).
+ */
+export async function createBankItem(formData: FormData) {
+  const groupId = String(formData.get("group") ?? "").trim();
+  if (!groupId) return;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,15 +41,29 @@ export async function createBankItem() {
   if (!user) return;
 
   // Blank, like a new quiz question: a placeholder only has to be deleted again.
-  await supabase.from("question_bank_items").insert({
-    created_by: user.id,
-    type: "mcq_single",
-    prompt: "",
-    options: { choices: ["", ""] },
-    correct_answer: "",
-    weight: 1,
-  });
+  const { data: created } = await supabase
+    .from("question_bank_items")
+    .insert({
+      created_by: user.id,
+      type: "mcq_single",
+      prompt: "",
+      options: { choices: ["", ""] },
+      correct_answer: "",
+      weight: 1,
+    })
+    .select("id")
+    .single();
+  if (!created) return;
+
+  await supabase
+    .from("question_curriculum_tags")
+    .insert({ question_bank_item_id: created.id, group_id: groupId });
+
   revalidatePath("/dashboard/bank");
+  // Disaring ke topiknya supaya bagian itu terbuka — anchor tidak bisa menggulir
+  // ke dalam <details> yang tertutup — dan supaya soal barunya jadi satu-satunya
+  // hal di layar, bukan kartu ke sekian di kaki halaman.
+  redirect(`/dashboard/bank?topic=${groupId}#soal-${created.id}`);
 }
 
 export async function deleteBankItem(itemId: string) {

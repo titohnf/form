@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import type { CurriculumTopicGroup, QuestionBankItem, Subject } from "@/lib/types";
 import { bySubject, topicLabel } from "@/lib/curriculum";
-import { createBankItem } from "./actions";
 import BankItem from "./BankItem";
+import { NewItemDialog, NewItemInTopic } from "./NewItem";
 
 export default async function BankPage({
   searchParams,
@@ -72,14 +72,7 @@ export default async function BankPage({
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Latihan Soal</h1>
-        <form action={createBankItem}>
-          <button
-            type="submit"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            + Soal Baru
-          </button>
-        </form>
+        <NewItemDialog subjects={subjects} />
       </div>
 
       <p className="text-sm text-gray-500">
@@ -121,11 +114,47 @@ export default async function BankPage({
 
       <div className="flex flex-col gap-5">
         {visibleItems.length === 0 && (
-          <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-gray-500">
-            {typedItems.length === 0
-              ? "Latihan soal masih kosong. Buat soal baru di sini, atau pakai tombol “Simpan ke Bank” di editor paket soal."
-              : "Tidak ada soal dengan topik itu."}
-          </p>
+          <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5">
+            <p className="text-sm text-gray-500">
+              {typedItems.length === 0
+                ? "Latihan soal masih kosong. Buat soal baru di sini, atau pakai tombol “Simpan ke Latihan Soal” di editor paket soal."
+                : "Belum ada soal di topik itu."}
+            </p>
+            {/* Topik kosong tidak punya bagiannya sendiri untuk ditumpangi
+                tombol, jadi tombolnya menempel di pesan kosongnya. */}
+            {topicFilter && <NewItemInTopic groupId={topicFilter} />}
+          </div>
+        )}
+
+        {/* Soal tanpa topik ditaruh paling atas, bukan di kaki halaman: soal
+            seperti ini tidak pernah sampai ke murid, jadi ia butuh perhatian
+            lebih dulu, bukan disembunyikan di bawah puluhan topik. */}
+        {visibleUntagged.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold tracking-widest text-amber-700 uppercase">
+              Belum ditandai topik
+            </h2>
+            {/* Tertutup: sekarang letaknya di atas, jadi membentangkan beberapa
+                editor penuh di sini akan mendorong seluruh daftar topik keluar
+                layar. Judul amber dan jumlahnya sudah cukup memanggil. */}
+            <details className="rounded-2xl border border-amber-200 bg-white p-5">
+              <summary className="cursor-pointer text-sm font-medium text-gray-900">
+                Tanpa topik{" "}
+                <span className="font-normal text-gray-400">({visibleUntagged.length} soal)</span>
+              </summary>
+              <p className="mt-2 text-sm text-gray-500">
+                Soal-soal ini tidak akan pernah muncul di latihan mandiri murid sampai topiknya
+                ditandai.
+              </p>
+              <div className="mt-4 flex flex-col gap-5">
+                {visibleUntagged.map((item) => (
+                  <div key={item.id} id={`soal-${item.id}`} className="scroll-mt-6">
+                    <BankItem item={item} subjects={subjects} initialTaggedIds={[]} />
+                  </div>
+                ))}
+              </div>
+            </details>
+          </section>
         )}
 
         {sections.map((subject) => (
@@ -147,43 +176,22 @@ export default async function BankPage({
                 </summary>
                 <div className="mt-4 flex flex-col gap-5">
                   {items.map((item) => (
-                    <BankItem
-                      key={item.id}
-                      item={item}
-                      subjects={subjects}
-                      initialTaggedIds={typedTags
-                        .filter((t) => t.question_bank_item_id === item.id)
-                        .map((t) => t.group_id)}
-                    />
+                    <div key={item.id} id={`soal-${item.id}`} className="scroll-mt-6">
+                      <BankItem
+                        item={item}
+                        subjects={subjects}
+                        initialTaggedIds={typedTags
+                          .filter((t) => t.question_bank_item_id === item.id)
+                          .map((t) => t.group_id)}
+                      />
+                    </div>
                   ))}
+                  <NewItemInTopic groupId={group.id} />
                 </div>
               </details>
             ))}
           </section>
         ))}
-
-        {visibleUntagged.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold tracking-widest text-amber-700 uppercase">
-              Belum ditandai topik
-            </h2>
-            <details className="rounded-2xl border border-amber-200 bg-white p-5" open>
-              <summary className="cursor-pointer text-sm font-medium text-gray-900">
-                Tanpa topik{" "}
-                <span className="font-normal text-gray-400">({visibleUntagged.length} soal)</span>
-              </summary>
-              <p className="mt-2 text-sm text-gray-500">
-                Soal-soal ini tidak akan pernah muncul di latihan mandiri murid sampai topiknya
-                ditandai.
-              </p>
-              <div className="mt-4 flex flex-col gap-5">
-                {visibleUntagged.map((item) => (
-                  <BankItem key={item.id} item={item} subjects={subjects} initialTaggedIds={[]} />
-                ))}
-              </div>
-            </details>
-          </section>
-        )}
       </div>
     </div>
   );
