@@ -3,6 +3,7 @@ import { QUIZ_KIND_LABEL, type Quiz, type QuizKind } from "@/lib/types";
 import { sessionWindowStart } from "@/lib/session-window";
 import { nowMs } from "@/lib/relative-time";
 import { createQuiz } from "./actions";
+import SubmitButton from "@/lib/SubmitButton";
 import QuizList, { type QuizListItem } from "./QuizList";
 
 interface TutorSession {
@@ -30,60 +31,52 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user?.id ?? "")
-    .single();
-  const isTutor = profile?.role === "tutor";
-
+  // Dijalankan berbarengan: keduanya tidak saling bergantung, dan halaman ini
+  // adalah tujuan redirect setelah login — tiap perjalanan bolak-balik ke
+  // Supabase yang bisa dihemat langsung terasa sebagai layar diam.
+  //
   // `select("*")` supaya `updated_at` (migrasi 078) dan `kind` (079) ikut kalau
   // sudah dijalankan, dan halaman ini tidak error kalau belum — kolom yang
   // belum ada akan menggagalkan seluruh query kalau disebut namanya. Karena itu
   // penyaringan `kind` juga dilakukan di sini, bukan lewat `.eq()`.
-  const { data: quizzes } = await supabase
-    .from("quizzes")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const [{ data: profile }, { data: quizzes }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user?.id ?? "").single(),
+    supabase.from("quizzes").select("*").order("created_at", { ascending: false }),
+  ]);
+  const isTutor = profile?.role === "tutor";
 
   const typedQuizzes = ((quizzes ?? []) as (Quiz & { updated_at?: string })[]).filter(
     (q) => (q.kind ?? "asesmen") === kind,
   );
 
-  // Satu query untuk semua paket, lalu dihitung di sini: jumlah barisnya
-  // sepadan dengan jumlah pengerjaan, bukan jumlah paket dikali sesuatu.
-  const { data: attemptRows } = typedQuizzes.length
-    ? await supabase
-        .from("attempts")
-        .select("quiz_id, submitted_at")
-        .in(
-          "quiz_id",
-          typedQuizzes.map((q) => q.id),
-        )
-    : { data: null };
+  const quizIds = typedQuizzes.map((q) => q.id);
+  const creatorIds = [...new Set(typedQuizzes.map((q) => q.created_by).filter(Boolean))] as string[];
 
+  // Tiga query yang sama-sama hanya butuh daftar id di atas, jadi dijalankan
+  // bersamaan. Berurutan, ketiganya menambah tiga kali latensi jaringan ke
+  // layar yang sedang ditunggu orang.
+  //
   // Tipe "privat" ditentukan penugasannya, bukan hanya `session_id`: paket soal
   // induk buatan admin sengaja bernilai null di sana (lihat migrasi 074),
   // padahal begitu ditugaskan ia hanya bisa dikerjakan murid kelas sesi itu.
-  const { data: assignedRows } = typedQuizzes.length
-    ? await supabase
-        .from("assessments")
-        .select("quiz_id")
-        .in(
-          "quiz_id",
-          typedQuizzes.map((q) => q.id),
-        )
-    : { data: null };
+  // Peran pembuat dipakai untuk label sumber; untuk tutor RLS Tera hanya
+  // membuka profilnya sendiri, jadi paket buatan admin tampil tanpa label —
+  // bukan salah label.
+  const [{ data: attemptRows }, { data: assignedRows }, { data: creatorRows }] = await Promise.all([
+    quizIds.length
+      ? supabase.from("attempts").select("quiz_id, submitted_at").in("quiz_id", quizIds)
+      : Promise.resolve({ data: null }),
+    quizIds.length
+      ? supabase.from("assessments").select("quiz_id").in("quiz_id", quizIds)
+      : Promise.resolve({ data: null }),
+    creatorIds.length
+      ? supabase.from("profiles").select("id, role").in("id", creatorIds)
+      : Promise.resolve({ data: null }),
+  ]);
+
   const assignedQuizIds = new Set(
     ((assignedRows ?? []) as { quiz_id: string | null }[]).map((r) => r.quiz_id),
   );
-
-  // Peran pembuatnya. Untuk tutor, RLS Tera hanya membuka profilnya sendiri —
-  // paket soal buatan admin akan tampil tanpa label sumber, bukan salah label.
-  const creatorIds = [...new Set(typedQuizzes.map((q) => q.created_by).filter(Boolean))] as string[];
-  const { data: creatorRows } = creatorIds.length
-    ? await supabase.from("profiles").select("id, role").in("id", creatorIds)
-    : { data: null };
   const roleById = new Map(
     ((creatorRows ?? []) as { id: string; role: string }[]).map((p) => [p.id, p.role]),
   );
@@ -132,12 +125,12 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
         {!isTutor && (
           <form action={createQuiz} className="shrink-0">
             <input type="hidden" name="kind" value={kind} />
-            <button
-              type="submit"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium whitespace-nowrap text-white transition-colors hover:bg-blue-700"
+            <SubmitButton
+              pendingLabel="Membuat…"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium whitespace-nowrap text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
               + Buat {label}
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>
@@ -177,12 +170,12 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
                 </option>
               ))}
             </select>
-            <button
-              type="submit"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            <SubmitButton
+              pendingLabel="Membuat…"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
               + Buat {label} Sesi
-            </button>
+            </SubmitButton>
           </form>
         ))}
 

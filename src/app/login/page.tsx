@@ -1,3 +1,4 @@
+import SubmitButton from "@/lib/SubmitButton";
 import { login } from "./actions";
 
 /** Kode dari proxy (lihat dashboardDenial) dijadikan kalimat yang bisa dibaca. */
@@ -47,12 +48,12 @@ export default async function LoginPage({
             className="rounded border border-gray-300 px-3 py-2"
           />
         </label>
-        <button
-          type="submit"
-          className="rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+        <SubmitButton
+          pendingLabel="Memproses…"
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
         >
           Masuk
-        </button>
+        </SubmitButton>
       </form>
 
       <p className="text-sm text-gray-500">
