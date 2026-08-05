@@ -94,7 +94,9 @@ export default function QuestionList({
             question={question}
             label={`Soal ${index + 1}`}
             save={(patch) => saveQuestion(question.id, patch)}
-            onSaveToBank={canSaveToBank ? () => saveToBank(question.id) : undefined}
+            onSaveToBank={
+              canSaveToBank && !question.bank_item_id ? () => saveToBank(question.id) : undefined
+            }
             branchingContext={{
               sequentialMode,
               otherQuestions: questions.map((q) => ({ id: q.id, prompt: q.prompt })),

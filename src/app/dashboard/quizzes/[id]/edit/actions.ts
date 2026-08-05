@@ -197,20 +197,61 @@ export async function saveToBank(questionId: string) {
   await supabase.from("question_bank_items").insert({ created_by: user.id, ...question });
 }
 
-export async function addFromBank(quizId: string, nextOrderIndex: number, bankItemId: string) {
+/**
+ * Menyalin beberapa soal bank ke paket sekaligus.
+ *
+ * Sekaligus, bukan satu per satu, karena meracik try out dari 30 soal lewat
+ * satu-klik-satu-soal berarti 30 kali muat ulang halaman — dan tidak ada
+ * penanda mana yang sudah masuk, jadi mudah dobel atau terlewat.
+ *
+ * Urutan `bankItemIds` dipertahankan sebagai urutan soal di paket: itu urutan
+ * yang dilihat admin saat mencentang, dan mengacaknya di sini hanya bikin dia
+ * menata ulang dengan tangan.
+ *
+ * Isinya DISALIN, bukan ditautkan — mengedit soal di paket tidak mengubah
+ * aslinya di bank. `bank_item_id` cuma penanda asal, dipakai untuk
+ * menyembunyikan tombol "Simpan ke Bank" pada soal yang justru datang dari
+ * sana.
+ */
+export async function addManyFromBank(
+  quizId: string,
+  nextOrderIndex: number,
+  bankItemIds: string[],
+) {
+  if (bankItemIds.length === 0) return;
   const supabase = await createClient();
-  const { data: item } = await supabase
-    .from("question_bank_items")
-    .select("type, prompt, options, correct_answer, weight, explanation, stimulus_images")
-    .eq("id", bankItemId)
-    .single();
-  if (!item) return;
 
-  await supabase.from("questions").insert({
-    quiz_id: quizId,
-    order_index: nextOrderIndex,
-    ...item,
-  });
+  const { data: items } = await supabase
+    .from("question_bank_items")
+    .select("id, type, prompt, options, correct_answer, weight, explanation, stimulus_images")
+    .in("id", bankItemIds);
+  if (!items?.length) return;
+
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const rows = bankItemIds
+    .map((id) => byId.get(id))
+    .filter((i) => i !== undefined)
+    .map((item, index) => {
+      const { id, ...content } = item;
+      return { quiz_id: quizId, order_index: nextOrderIndex + index, bank_item_id: id, ...content };
+    });
+
+  const { error } = await supabase.from("questions").insert(rows);
+
+  // Sebelum migrasi 082 kolom `bank_item_id` belum ada. Soalnya tetap masuk —
+  // yang hilang hanya penanda asalnya, jadi tombol "Simpan ke Bank" masih
+  // muncul di soal-soal itu. Lebih baik daripada menolak menambahkan soal.
+  if (error?.code === "PGRST204" && (error.message ?? "").includes("bank_item_id")) {
+    await supabase.from("questions").insert(
+      rows.map((row) => {
+        const withoutOrigin: Record<string, unknown> = { ...row };
+        delete withoutOrigin.bank_item_id;
+        return withoutOrigin;
+      }),
+    );
+  } else if (error) {
+    throw new Error(error.message);
+  }
 
   revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
 }

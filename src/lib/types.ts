@@ -92,6 +92,13 @@ export interface Question {
   /** Shown to students after they answer in practice mode. Null for questions without one. */
   explanation: string | null;
   /**
+   * The bank item this question was copied from (migration 082), or null when
+   * it was written here. Provenance only — editing either side never touches
+   * the other. Used to hide "Simpan ke Bank" on questions that came from the
+   * bank, where saving would silently create a twin. Absent until 082 runs.
+   */
+  bank_item_id?: string | null;
+  /**
    * Stimulus shown above the prompt, in array order. Empty for questions that
    * are pure text. TKA leans on these heavily — diagrams, geometric figures,
    * charts — which is why they live here rather than being squeezed into the

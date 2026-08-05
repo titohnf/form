@@ -13,6 +13,8 @@ import type {
   QuizKind,
 } from "@/lib/types";
 import { QUIZ_KIND_LABEL } from "@/lib/types";
+import type { CurriculumTopicGroup, Subject } from "@/lib/types";
+import { bySubject, topicLabel } from "@/lib/curriculum";
 import { findQuizIssues } from "@/lib/question-validation";
 import { sessionWindowStart } from "@/lib/session-window";
 import { publishQuiz, deleteQuiz, setQuizKind } from "../../../actions";
@@ -21,12 +23,12 @@ import {
   addQuestion,
   updateQuizSettings,
   assignClass,
-  addFromBank,
+  addManyFromBank,
   assignToSession,
   unassignFromSession,
 } from "./actions";
 import QuestionList from "./QuestionList";
-import QuestionBankPicker from "./QuestionBankPicker";
+import QuestionBankPicker, { type BankTopicGroup } from "./QuestionBankPicker";
 import AiGenerator from "./AiGenerator";
 
 export default async function EditQuizPage({
@@ -59,12 +61,19 @@ export default async function EditQuizPage({
   const { data: classes } = await supabase.from("classes").select("id, name").order("name");
   // Bank soal admin-only di RLS, jadi untuk tutor kuerinya dilewati sama sekali
   // — daripada memanggilnya dan menampilkan pemilih kosong tanpa penjelasan.
-  const { data: bankItems } = isTutor
-    ? { data: null }
-    : await supabase
-        .from("question_bank_items")
-        .select("*")
-        .order("created_at", { ascending: false });
+  // Bank + penandaan topiknya dimuat bersamaan: pemilih soal mengelompokkan
+  // per topik, jadi tanpa tag dan grup-nya daftarnya cuma tumpukan panjang.
+  const [{ data: bankItems }, { data: bankTags }, { data: topicGroups }, { data: subjectRows }] =
+    isTutor
+      ? [{ data: null }, { data: null }, { data: null }, { data: null }]
+      : await Promise.all([
+          supabase.from("question_bank_items").select("*").order("created_at", { ascending: false }),
+          supabase.from("question_curriculum_tags").select("question_bank_item_id, group_id"),
+          supabase
+            .from("curriculum_topic_groups")
+            .select("id, subject_id, curriculum, grade_level, semester, theme, topic"),
+          supabase.from("subjects").select("id, name").order("name"),
+        ]);
 
   // Penugasan ke sesi adalah pekerjaan admin: tutor menyusun paket soal untuk
   // sesinya sendiri lewat dashboard, dan paket itu sudah lahir dengan
@@ -116,6 +125,25 @@ export default async function EditQuizPage({
   const typedQuestions = (questions ?? []) as Question[];
   const typedClasses = (classes ?? []) as Pick<Class, "id" | "name">[];
   const typedBankItems = (bankItems ?? []) as QuestionBankItem[];
+  const typedBankTags = (bankTags ?? []) as { question_bank_item_id: string; group_id: string }[];
+  const typedTopicGroups = (topicGroups ?? []) as CurriculumTopicGroup[];
+  const typedSubjects = (subjectRows ?? []) as Subject[];
+
+  // Bentuk yang dipakai pemilih: satu entri per topik yang benar-benar punya
+  // soal, sudah berurut mengikuti urutan kurikulum Tera.
+  const bankTopics: BankTopicGroup[] = bySubject(typedTopicGroups, typedSubjects).flatMap(
+    (subject) =>
+      subject.groups
+        .map((group) => ({
+          id: group.id,
+          label: topicLabel(group),
+          subjectName: subject.subjectName,
+          itemIds: typedBankTags
+            .filter((t) => t.group_id === group.id)
+            .map((t) => t.question_bank_item_id),
+        }))
+        .filter((t) => t.itemIds.length > 0),
+  );
   const settings = typedQuiz.settings ?? {};
   const nextOrderIndex =
     typedQuestions.length === 0 ? 0 : Math.max(...typedQuestions.map((q) => q.order_index)) + 1;
@@ -134,7 +162,7 @@ export default async function EditQuizPage({
   const boundAssignClass = assignClass.bind(null, id);
   const boundSetKind = setQuizKind.bind(null, id);
   const boundAssignToSession = assignToSession.bind(null, id);
-  const boundAddFromBank = addFromBank.bind(null, id, nextOrderIndex);
+  const boundAddFromBank = addManyFromBank.bind(null, id, nextOrderIndex);
 
   const shareUrl = typedQuiz.share_code ? `/q/${typedQuiz.share_code}` : null;
   let qrDataUrl: string | null = null;
@@ -500,7 +528,14 @@ export default async function EditQuizPage({
             ini saja.
           </p>
         ) : (
-          <QuestionBankPicker items={typedBankItems} onPick={boundAddFromBank} />
+          <QuestionBankPicker
+            items={typedBankItems}
+            topics={bankTopics}
+            addedBankItemIds={typedQuestions
+              .map((q) => q.bank_item_id)
+              .filter((v): v is string => !!v)}
+            onAdd={boundAddFromBank}
+          />
         )}
       </div>
     </div>
