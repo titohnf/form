@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/current-user";
 import DashboardSidebar from "./DashboardSidebar";
 import { logout } from "./actions";
 
@@ -10,18 +10,8 @@ import { logout } from "./actions";
  * bergantung pada layout.
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user?.id ?? "")
-    .single();
-
-  const isTutor = profile?.role === "tutor";
-  const name = profile?.full_name || user?.email || "Pengguna";
+  const { email, fullName, isTutor } = await getCurrentUser();
+  const name = fullName || email || "Pengguna";
 
   return (
     <div className="flex h-screen bg-slate-100">
@@ -34,9 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </span>
             <div className="leading-tight">
               <p className="text-sm font-medium text-gray-800">{name}</p>
-              {user?.email && name !== user.email && (
-                <p className="text-xs text-gray-400">{user.email}</p>
-              )}
+              {email && name !== email && <p className="text-xs text-gray-400">{email}</p>}
             </div>
           </div>
           <form action={logout}>

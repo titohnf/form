@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/current-user";
 import { QUIZ_KIND_LABEL, type Quiz, type QuizKind } from "@/lib/types";
 import { sessionWindowStart } from "@/lib/session-window";
 import { nowMs } from "@/lib/relative-time";
@@ -27,23 +28,19 @@ const KIND_BLURB: Record<QuizKind, string> = {
  */
 export default async function QuizzesView({ kind }: { kind: QuizKind }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  // Dijalankan berbarengan: keduanya tidak saling bergantung, dan halaman ini
-  // adalah tujuan redirect setelah login — tiap perjalanan bolak-balik ke
-  // Supabase yang bisa dihemat langsung terasa sebagai layar diam.
+  // Identitasnya dipakai bersama layout lewat `cache()` — tidak menembak
+  // Supabase lagi. Sisanya berbarengan: halaman ini tujuan redirect setelah
+  // login, jadi tiap perjalanan yang dihemat langsung terasa sebagai layar diam.
   //
   // `select("*")` supaya `updated_at` (migrasi 078) dan `kind` (079) ikut kalau
   // sudah dijalankan, dan halaman ini tidak error kalau belum — kolom yang
   // belum ada akan menggagalkan seluruh query kalau disebut namanya. Karena itu
   // penyaringan `kind` juga dilakukan di sini, bukan lewat `.eq()`.
-  const [{ data: profile }, { data: quizzes }] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user?.id ?? "").single(),
+  const [{ isTutor }, { data: quizzes }] = await Promise.all([
+    getCurrentUser(),
     supabase.from("quizzes").select("*").order("created_at", { ascending: false }),
   ]);
-  const isTutor = profile?.role === "tutor";
 
   const typedQuizzes = ((quizzes ?? []) as (Quiz & { updated_at?: string })[]).filter(
     (q) => (q.kind ?? "asesmen") === kind,

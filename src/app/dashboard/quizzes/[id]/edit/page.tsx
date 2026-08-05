@@ -15,6 +15,7 @@ import type {
 import { QUIZ_KIND_LABEL } from "@/lib/types";
 import type { CurriculumTopicGroup, Subject } from "@/lib/types";
 import { bySubject, topicLabel } from "@/lib/curriculum";
+import { getCurrentUser } from "@/lib/current-user";
 import { findQuizIssues } from "@/lib/question-validation";
 import { sessionWindowStart } from "@/lib/session-window";
 import { publishQuiz, deleteQuiz, setQuizKind } from "../../../actions";
@@ -48,15 +49,7 @@ export default async function EditQuizPage({
     .eq("quiz_id", id)
     .order("order_index", { ascending: true });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user?.id ?? "")
-    .single();
-  const isTutor = profile?.role === "tutor";
+  const { isTutor } = await getCurrentUser();
 
   const { data: classes } = await supabase.from("classes").select("id, name").order("name");
   // Bank soal admin-only di RLS, jadi untuk tutor kuerinya dilewati sama sekali
