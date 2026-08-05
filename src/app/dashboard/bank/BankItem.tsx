@@ -54,7 +54,7 @@ export default function BankItem({
     <div className="flex flex-col gap-2">
       <QuestionEditor
         question={asQuestion}
-        label="Soal Bank"
+        label="Soal Latihan"
         save={(patch) => saveBankItem(item.id, patch)}
         onDelete={() => deleteBankItem(item.id)}
       />

@@ -517,8 +517,8 @@ export default async function EditQuizPage({
         </form>
         {isTutor ? (
           <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-gray-500">
-            Bank soal bersama disusun admin. Soal yang kamu tulis di sini menempel pada paket soal sesi
-            ini saja.
+            Latihan Soal bersama disusun admin. Soal yang kamu tulis di sini menempel pada paket soal
+            sesi ini saja.
           </p>
         ) : (
           <QuestionBankPicker

@@ -437,15 +437,16 @@ export default function QuestionEditor({
           {onSaveToBank && (
             <button
               type="button"
-              // The bank copies the stored row, so the pending edit has to land
-              // first or it gets the version from before the last keystroke.
+              // Latihan Soal menyalin baris yang tersimpan, jadi suntingan yang
+              // tertunda harus mendarat dulu — kalau tidak, yang tersalin versi
+              // sebelum ketikan terakhir.
               onClick={async () => {
                 await flush();
                 await onSaveToBank();
               }}
               className="text-xs text-gray-500 hover:underline"
             >
-              Simpan ke Bank
+              Simpan ke Latihan Soal
             </button>
           )}
           {onDelete && (
