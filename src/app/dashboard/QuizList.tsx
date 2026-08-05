@@ -77,11 +77,14 @@ export default function QuizList({
   items,
   renderedAt,
   emptyLabel,
+  kind,
 }: {
   items: QuizListItem[];
   renderedAt: number;
   /** Nama kategorinya, dipakai di pesan daftar kosong. */
   emptyLabel: string;
+  /** Disisipkan ke tautan editor sebagai `?dari=` supaya sidebar tahu menu asalnya. */
+  kind: string;
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("updated");
@@ -184,7 +187,7 @@ export default function QuizList({
       ) : (
         <div className="flex flex-col divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           {visible.map((item) => (
-            <Row key={item.id} item={item} renderedAt={renderedAt} />
+            <Row key={item.id} item={item} renderedAt={renderedAt} kind={kind} />
           ))}
         </div>
       )}
@@ -192,7 +195,7 @@ export default function QuizList({
   );
 }
 
-function Row({ item, renderedAt }: { item: QuizListItem; renderedAt: number }) {
+function Row({ item, renderedAt, kind }: { item: QuizListItem; renderedAt: number; kind: string }) {
   const [pending, startTransition] = useTransition();
   // Konfirmasi hapus ditahan di state, bukan `confirm()`: dialog bawaan
   // browser memblokir seluruh halaman dan tidak bisa ditata.
@@ -228,7 +231,7 @@ function Row({ item, renderedAt }: { item: QuizListItem; renderedAt: number }) {
 
       <div className="min-w-0 flex-1">
         <Link
-          href={`/dashboard/quizzes/${item.id}/edit`}
+          href={`/dashboard/quizzes/${item.id}/edit?dari=${kind}`}
           className="block truncate font-medium text-gray-900 hover:underline"
         >
           {item.title}

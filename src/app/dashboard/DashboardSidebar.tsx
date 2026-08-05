@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 /**
  * Sidebar dashboard, mengikuti bahasa visual `AdminSidebar` di Tera supaya
@@ -15,21 +15,23 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
-  /** Rute anak yang tetap menyalakan item ini, mis. halaman edit di bawah "Paket Soal". */
-  alsoMatch?: string;
+  /** Kategori paket soal yang diwakili item ini, dicocokkan dengan `?dari=` di editor. */
+  kind?: "asesmen" | "remedial" | "tryout";
 }
 
 export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
   const pathname = usePathname();
+  // Editor semua kategori berbagi satu rute (/dashboard/quizzes/[id]/edit), jadi
+  // rutenya sendiri tidak bisa memberi tahu menu mana yang harus menyala.
+  // Daftar paket menyisipkan asalnya sebagai `?dari=`; pola yang sama dipakai
+  // AdminSidebar di Tera untuk membedakan halaman yang berbagi rute.
+  const from = useSearchParams().get("dari");
 
   const nav: NavItem[] = [
     {
       href: "/dashboard",
       label: "Asesmen",
-      // Editor tinggal di /dashboard/quizzes/[id] untuk semua kategori, jadi
-      // menu inilah yang menyala saat menyunting apa pun. Tidak ideal, tapi
-      // memindahkan rute editor berarti mematahkan tautan yang sudah beredar.
-      alsoMatch: "/dashboard/quizzes",
+      kind: "asesmen",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
@@ -44,6 +46,7 @@ export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
     {
       href: "/dashboard/remedial",
       label: "Remedial",
+      kind: "remedial",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
@@ -58,6 +61,7 @@ export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
     {
       href: "/dashboard/tryout",
       label: "Try Out",
+      kind: "tryout",
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
@@ -104,10 +108,15 @@ export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-        {nav.map(({ href, label, icon, alsoMatch }) => {
-          const isActive =
-            href === "/dashboard"
-              ? pathname === "/dashboard" || (!!alsoMatch && pathname.startsWith(alsoMatch))
+        {nav.map(({ href, label, icon, kind }) => {
+          // Di dalam editor, yang menentukan adalah asalnya. Tanpa `?dari=`
+          // (mis. tautan langsung) sengaja tidak ada yang menyala — lebih baik
+          // daripada menyalakan menu yang keliru.
+          const inEditor = pathname.startsWith("/dashboard/quizzes");
+          const isActive = inEditor
+            ? !!kind && kind === from
+            : href === "/dashboard"
+              ? pathname === "/dashboard"
               : pathname.startsWith(href);
           return (
             <Link

@@ -179,7 +179,7 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
           </form>
         ))}
 
-      <QuizList items={listItems} renderedAt={nowMs()} emptyLabel={label} />
+      <QuizList items={listItems} renderedAt={nowMs()} emptyLabel={label} kind={kind} />
     </div>
   );
 }
