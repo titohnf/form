@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { Branching, MatchingOptions, McqOptions, OrderingOptions, Question } from "@/lib/types";
+import type { Branching, Question } from "@/lib/types";
 import { BRANCH_END } from "@/lib/types";
-import { createClient } from "@/lib/supabase/client";
-import { MathText } from "@/lib/latex";
-import { startAttempt, saveAnswer, finalizeAttempt } from "./actions";
+import QuestionInput from "@/lib/QuestionInput";
+import { startAttempt, startAssessmentAttempt, saveAnswer, finalizeAttempt } from "./actions";
 
 interface Student {
   id: string;
@@ -33,12 +32,19 @@ export default function QuizForm({
   questions,
   students,
   sequential,
+  assessment,
 }: {
   quizId: string;
   shareCode: string;
   questions: Question[];
   students: Student[];
   sequential: boolean;
+  /**
+   * Nama murid yang sedang login, kalau kode ini sebuah penugasan asesmen.
+   * Identitasnya sudah pasti dari sesi login, jadi langkah isi nama / pilih
+   * roster dilewati sama sekali.
+   */
+  assessment: { studentName: string } | null;
 }) {
   const [step, setStep] = useState<"name" | "quiz" | "submitting">("name");
   const [guestName, setGuestName] = useState("");
@@ -50,6 +56,18 @@ export default function QuizForm({
   const [visited, setVisited] = useState(1);
 
   async function handleStart() {
+    if (assessment) {
+      setError(null);
+      const result = await startAssessmentAttempt(shareCode);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      setAttemptId(result.attemptId);
+      setStep("quiz");
+      return;
+    }
+
     const name = students.length > 0 ? students.find((s) => s.id === studentId)?.name ?? "" : guestName.trim();
     if (!name) {
       setError("Nama wajib diisi");
@@ -92,7 +110,11 @@ export default function QuizForm({
     return (
       <div className="flex flex-col gap-4">
         {error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        {students.length > 0 ? (
+        {assessment ? (
+          <p className="rounded bg-gray-50 p-3 text-sm">
+            Masuk sebagai <span className="font-medium">{assessment.studentName}</span>
+          </p>
+        ) : students.length > 0 ? (
           <label className="flex flex-col gap-1 text-sm">
             Pilih namamu
             <select
@@ -124,7 +146,7 @@ export default function QuizForm({
           onClick={handleStart}
           className="self-start rounded bg-black px-4 py-3 text-sm font-medium text-white hover:bg-gray-800"
         >
-          Mulai Kuis
+          {assessment ? "Mulai Asesmen" : "Mulai Mengerjakan"}
         </button>
       </div>
     );
@@ -144,7 +166,7 @@ export default function QuizForm({
         <p className="text-xs text-gray-400">Soal ke-{visited}</p>
         <QuestionInput
           question={question}
-          index={visited - 1}
+          label={`Soal ${visited}`}
           value={responses[question.id]}
           onChange={(value) => handleAnswer(question.id, value, questions.indexOf(question))}
         />
@@ -166,7 +188,7 @@ export default function QuizForm({
         <QuestionInput
           key={question.id}
           question={question}
-          index={index}
+          label={`Soal ${index + 1}`}
           value={responses[question.id]}
           onChange={(value) => handleAnswer(question.id, value, index)}
         />
@@ -184,270 +206,3 @@ export default function QuizForm({
   );
 }
 
-function QuestionInput({
-  question,
-  index,
-  value,
-  onChange,
-}: {
-  question: Question;
-  index: number;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  return (
-    <fieldset className="rounded border border-gray-200 p-4">
-      <legend className="px-1 text-sm font-medium">Soal {index + 1}</legend>
-      {question.type !== "fill_blank" && (
-        <p className="text-sm font-medium">
-          <MathText text={question.prompt} />
-        </p>
-      )}
-
-      {question.type === "mcq_single" && (
-        <div className="mt-2 flex flex-col gap-2">
-          {(question.options as McqOptions | null)?.choices?.map((choice) => (
-            <label key={choice} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name={`q_${question.id}`}
-                checked={value === choice}
-                onChange={() => onChange(choice)}
-              />
-              <MathText text={choice} />
-            </label>
-          ))}
-        </div>
-      )}
-
-      {question.type === "mcq_multi" && (
-        <div className="mt-2 flex flex-col gap-2">
-          {(question.options as McqOptions | null)?.choices?.map((choice) => {
-            const selected = Array.isArray(value) ? (value as string[]) : [];
-            return (
-              <label key={choice} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(choice)}
-                  onChange={(e) =>
-                    onChange(
-                      e.target.checked
-                        ? [...selected, choice]
-                        : selected.filter((c) => c !== choice),
-                    )
-                  }
-                />
-                <MathText text={choice} />
-              </label>
-            );
-          })}
-        </div>
-      )}
-
-      {question.type === "true_false" && (
-        <div className="mt-2 flex gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input type="radio" name={`q_${question.id}`} checked={value === "true"} onChange={() => onChange("true")} />
-            Benar
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="radio" name={`q_${question.id}`} checked={value === "false"} onChange={() => onChange("false")} />
-            Salah
-          </label>
-        </div>
-      )}
-
-      {question.type === "short_answer" && (
-        <input
-          defaultValue={typeof value === "string" ? value : ""}
-          onBlur={(e) => onChange(e.target.value)}
-          className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          placeholder="Jawaban singkat"
-        />
-      )}
-
-      {question.type === "essay" && (
-        <textarea
-          defaultValue={typeof value === "string" ? value : ""}
-          onBlur={(e) => onChange(e.target.value)}
-          rows={4}
-          className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          placeholder="Tulis jawabanmu"
-        />
-      )}
-
-      {question.type === "matching" && (
-        <MatchingInput question={question} value={value} onChange={onChange} />
-      )}
-
-      {question.type === "ordering" && (
-        <OrderingInput question={question} value={value} onChange={onChange} />
-      )}
-
-      {question.type === "fill_blank" && (
-        <FillBlankInput question={question} value={value} onChange={onChange} />
-      )}
-
-      {question.type === "upload_file" && (
-        <UploadFileInput value={value} onChange={onChange} />
-      )}
-    </fieldset>
-  );
-}
-
-function MatchingInput({
-  question,
-  value,
-  onChange,
-}: {
-  question: Question;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  const pairs = (question.options as MatchingOptions | null)?.pairs ?? [];
-  const [rightChoices] = useState(() => [...pairs].map((p) => p.right).sort(() => Math.random() - 0.5));
-  const mapping = (value as Record<string, string>) ?? {};
-
-  return (
-    <div className="mt-2 flex flex-col gap-2">
-      {pairs.map((pair) => (
-        <div key={pair.left} className="flex items-center gap-2 text-sm">
-          <span className="flex-1">
-            <MathText text={pair.left} />
-          </span>
-          <select
-            value={mapping[pair.left] ?? ""}
-            onChange={(e) => onChange({ ...mapping, [pair.left]: e.target.value })}
-            className="flex-1 rounded border border-gray-300 px-2 py-1"
-          >
-            <option value="">— pilih —</option>
-            {rightChoices.map((choice) => (
-              <option key={choice} value={choice}>
-                {choice}
-              </option>
-            ))}
-          </select>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function OrderingInput({
-  question,
-  value,
-  onChange,
-}: {
-  question: Question;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  const items = (question.options as OrderingOptions | null)?.items ?? [];
-  const [order, setOrder] = useState<string[]>(() => {
-    if (Array.isArray(value)) return value as string[];
-    return [...items].sort(() => Math.random() - 0.5);
-  });
-
-  function move(i: number, dir: -1 | 1) {
-    const next = [...order];
-    const swap = i + dir;
-    if (swap < 0 || swap >= next.length) return;
-    [next[i], next[swap]] = [next[swap], next[i]];
-    setOrder(next);
-    onChange(next);
-  }
-
-  return (
-    <div className="mt-2 flex flex-col gap-1">
-      {order.map((item, i) => (
-        <div key={item} className="flex items-center gap-2 rounded border border-gray-200 px-2 py-1 text-sm">
-          <span className="flex-1">
-            {i + 1}. <MathText text={item} />
-          </span>
-          <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="text-xs disabled:opacity-30">
-            ▲
-          </button>
-          <button
-            type="button"
-            disabled={i === order.length - 1}
-            onClick={() => move(i, 1)}
-            className="text-xs disabled:opacity-30"
-          >
-            ▼
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FillBlankInput({
-  question,
-  value,
-  onChange,
-}: {
-  question: Question;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  const parts = question.prompt.split("___");
-  const blanks = Array.isArray(value) ? (value as string[]) : Array(Math.max(parts.length - 1, 0)).fill("");
-
-  function setBlank(i: number, text: string) {
-    const next = [...blanks];
-    next[i] = text;
-    onChange(next);
-  }
-
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-      {parts.map((part, i) => (
-        <span key={i} className="flex items-center gap-2">
-          <MathText text={part} />
-          {i < parts.length - 1 && (
-            <input
-              defaultValue={blanks[i] ?? ""}
-              onBlur={(e) => setBlank(i, e.target.value)}
-              className="w-32 rounded border border-gray-300 px-2 py-1"
-            />
-          )}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function UploadFileInput({
-  value,
-  onChange,
-}: {
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  const [uploading, setUploading] = useState(false);
-
-  async function handleFile(file: File) {
-    setUploading(true);
-    const supabase = createClient();
-    const path = `${Date.now()}-${file.name}`;
-    const { data, error } = await supabase.storage.from("quiz-uploads").upload(path, file);
-    setUploading(false);
-    if (error || !data) return;
-    const { data: publicUrl } = supabase.storage.from("quiz-uploads").getPublicUrl(data.path);
-    onChange(publicUrl.publicUrl);
-  }
-
-  return (
-    <div className="mt-2 text-sm">
-      <input
-        type="file"
-        onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-        className="text-sm"
-      />
-      {uploading && <p className="text-gray-500">Mengunggah…</p>}
-      {typeof value === "string" && value && (
-        <p className="mt-1 text-green-700">Sudah diunggah ✓</p>
-      )}
-    </div>
-  );
-}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Attempt, Question } from "@/lib/types";
 import { MathText } from "@/lib/latex";
+import { formatResponse } from "@/lib/answer-format";
 import { gradeEssayAnswer } from "./actions";
 
 interface AnswerRow {
@@ -38,13 +39,13 @@ export default async function AttemptDetailPage({
   const typedAnswers = (answers ?? []) as unknown as AnswerRow[];
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
+    <div className="space-y-5">
       <Link href={`/dashboard/quizzes/${id}/results`} className="text-sm text-gray-500 underline">
         ← Kembali ke Hasil
       </Link>
 
-      <h1 className="mt-4 mb-1 text-2xl font-semibold">{typedAttempt.guest_name}</h1>
-      <p className="mb-6 text-sm text-gray-500">
+      <h1 className="text-xl font-semibold text-gray-900">{typedAttempt.guest_name}</h1>
+      <p className="text-sm text-gray-500">
         Skor total: {typedAttempt.total_score === null ? "Menunggu penilaian" : typedAttempt.total_score}
       </p>
 
@@ -52,14 +53,14 @@ export default async function AttemptDetailPage({
         {typedAnswers.map((answer) => {
           const boundGrade = gradeEssayAnswer.bind(null, id, attemptId, answer.id);
           return (
-            <div key={answer.id} className="rounded border border-gray-200 p-4">
+            <div key={answer.id} className="rounded-2xl border border-slate-200 bg-white p-5">
               <p className="font-medium">
                 <MathText text={answer.questions.prompt} />
               </p>
               <p className="mt-1 text-sm text-gray-600">
                 Jawaban:{" "}
                 <span className="font-medium">
-                  <MathText text={String(answer.response ?? "-")} />
+                  <MathText text={formatResponse(answer.questions, answer.response)} />
                 </span>
               </p>
 

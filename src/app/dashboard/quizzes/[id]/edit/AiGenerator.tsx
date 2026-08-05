@@ -140,7 +140,7 @@ export default function AiGenerator({
             disabled={adding || selected.size === 0}
             className="self-start rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
-            {adding ? "Menambahkan…" : `Tambah ${selected.size} Soal ke Kuis`}
+            {adding ? "Menambahkan…" : `Tambah ${selected.size} Soal ke Paket`}
           </button>
         </div>
       )}

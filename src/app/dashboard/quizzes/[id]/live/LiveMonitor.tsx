@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Answer, Attempt, Question } from "@/lib/types";
 import { MathText } from "@/lib/latex";
+import { formatResponse } from "@/lib/answer-format";
 import { saveTutorFeedback } from "./actions";
 
 const IDLE_THRESHOLD_MS = 2 * 60 * 1000;
@@ -92,7 +93,7 @@ export default function LiveMonitor({
   return (
     <div className="flex flex-col divide-y divide-gray-200 rounded border border-gray-200">
       {attemptList.length === 0 && (
-        <p className="p-6 text-sm text-gray-500">Belum ada murid yang membuka kuis ini.</p>
+        <p className="p-6 text-sm text-gray-500">Belum ada murid yang membuka paket soal ini.</p>
       )}
       {attemptList.map((attempt) => {
         const isSubmitted = Boolean(attempt.submitted_at);
@@ -142,7 +143,7 @@ export default function LiveMonitor({
                       <p className="mt-1 text-gray-600">
                         Jawaban:{" "}
                         {answer ? (
-                          <MathText text={String(answer.response ?? "-")} />
+                          <MathText text={formatResponse(question, answer.response)} />
                         ) : (
                           <em className="text-gray-400">belum dijawab</em>
                         )}

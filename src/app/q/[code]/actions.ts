@@ -10,7 +10,7 @@ export type StartAttemptResult = { attemptId: string } | { error: string };
 export async function startAttempt(
   shareCode: string,
   guestName: string,
-  studentId: string | null,
+  learnerId: string | null,
 ): Promise<StartAttemptResult> {
   const supabase = await createClient();
 
@@ -21,17 +21,17 @@ export async function startAttempt(
     .single();
 
   if (!quiz || quiz.status !== "published") {
-    return { error: "Kuis tidak tersedia." };
+    return { error: "Paket soal tidak tersedia." };
   }
 
   const settings = (quiz.settings ?? {}) as Partial<QuizSettings>;
   const now = new Date();
 
   if (settings.opens_at && now < new Date(settings.opens_at)) {
-    return { error: "Kuis belum dibuka." };
+    return { error: "Paket soal belum dibuka." };
   }
   if (settings.closes_at && now > new Date(settings.closes_at)) {
-    return { error: "Kuis sudah ditutup." };
+    return { error: "Paket soal sudah ditutup." };
   }
 
   if (settings.max_attempts) {
@@ -41,18 +41,18 @@ export async function startAttempt(
       .eq("quiz_id", quiz.id)
       .eq("guest_name", guestName);
     if ((count ?? 0) >= settings.max_attempts) {
-      return { error: "Kamu sudah mencapai batas percobaan untuk kuis ini." };
+      return { error: "Kamu sudah mencapai batas percobaan untuk paket soal ini." };
     }
   }
 
   const { data: attempt, error } = await supabase
     .from("attempts")
-    .insert({ quiz_id: quiz.id, guest_name: guestName, student_id: studentId })
+    .insert({ quiz_id: quiz.id, guest_name: guestName, learner_id: learnerId })
     .select("id")
     .single();
 
   if (error || !attempt) {
-    return { error: "Gagal memulai kuis." };
+    return { error: "Gagal memulai paket soal." };
   }
 
   return { attemptId: attempt.id };
@@ -130,4 +130,23 @@ export async function finalizeAttempt(shareCode: string, attemptId: string) {
     .eq("id", attemptId);
 
   redirect(`/q/${shareCode}/result/${attemptId}`);
+}
+
+/**
+ * Mulai (atau lanjutkan) attempt asesmen untuk murid yang sedang login.
+ *
+ * Seluruh pemeriksaan ada di `start_assessment_attempt` (migrasi 075): kode
+ * dikenal, paket soalnya terbit, dan pemanggilnya terdaftar di kelas sesi itu.
+ * Sengaja tidak di-insert dari sini — kalau attempt boleh ditulis langsung,
+ * murid yang login masih bisa mengirimkan `learner_id` milik temannya.
+ */
+export async function startAssessmentAttempt(shareCode: string): Promise<StartAttemptResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("start_assessment_attempt", {
+    p_share_code: shareCode,
+  });
+
+  if (error) return { error: error.message };
+  if (!data) return { error: "Tidak bisa memulai asesmen." };
+  return { attemptId: data as string };
 }

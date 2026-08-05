@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import:tka": "tsx scripts/import-tka.ts",
+    "migrate:keluarga": "tsx scripts/migrate-family-accounts.ts",
+    "check:drift": "tsx scripts/check-drift.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
@@ -30,6 +33,7 @@
     "eslint-config-next": "16.2.10",
     "supabase": "^2.109.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.5",
     "typescript": "^5"
   }
 }

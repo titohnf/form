@@ -26,13 +26,13 @@ export default async function LiveMonitoringPage({
   const { data: answers } = await supabase.from("answers").select("*").eq("quiz_id", id);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="space-y-5">
       <Link href={`/dashboard/quizzes/${id}/edit`} className="text-sm text-gray-500 underline">
         ← Kembali ke Editor
       </Link>
 
-      <h1 className="mt-4 mb-1 text-2xl font-semibold">Live Monitoring: {(quiz as Quiz).title}</h1>
-      <p className="mb-6 text-sm text-gray-500">Halaman ini update otomatis saat murid mengerjakan.</p>
+      <h1 className="text-xl font-semibold text-gray-900">Live Monitoring: {(quiz as Quiz).title}</h1>
+      <p className="text-sm text-gray-500">Halaman ini update otomatis saat murid mengerjakan.</p>
 
       <LiveMonitor
         quizId={id}

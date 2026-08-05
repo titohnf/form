@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # Dikunci supaya build di Netlify tidak diam-diam pindah versi Node saat
+  # image build mereka diperbarui. Beda dengan repo `tera`, build di sini muat
+  # di heap default — jadi tidak ada NODE_OPTIONS.
+  NODE_VERSION = "24"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

@@ -21,7 +21,7 @@ export default function QuestionBankPicker({
       <select
         value={selected}
         onChange={(e) => setSelected(e.target.value)}
-        className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
+        className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
       >
         <option value="">Pilih soal dari Bank Soal…</option>
         {items.map((item) => (
@@ -34,7 +34,7 @@ export default function QuestionBankPicker({
         type="button"
         disabled={!selected}
         onClick={() => selected && onPick(selected)}
-        className="rounded border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-40"
+        className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium whitespace-nowrap text-gray-700 transition-colors hover:bg-slate-50 disabled:opacity-40"
       >
         Tambah dari Bank
       </button>

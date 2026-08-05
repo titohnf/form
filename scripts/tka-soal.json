@@ -1,0 +1,672 @@
+[
+ {
+  "no": 1,
+  "type": "mcq_single",
+  "prompt": "Ani membeli 2 pulpen dan 2 pensil di sebuah toko alat tulis. Harga satuan pulpen adalah Rp12.000,00 dan harga satuan pensil adalah Rp8.000,00 . Kebetulan, toko tersebut sedang memberikan promo \"Hemat Berempat\" dengan ketentuan sebagai berikut: “Setiap pembelian 4 barang (boleh campur) akan mendapat potongan harga sebesar harga 1 barang termurah yang dibeli”.\n\nBerapa total harga yang harus dibayar Ani dari semua barang yang dibeli?",
+  "options": {
+   "choices": [
+    "Rp32.000,00.",
+    "Rp36.000,00.",
+    "Rp40.000,00.",
+    "Rp44.000,00."
+   ]
+  },
+  "correct_answer": "Rp32.000,00.",
+  "images": [],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait cakupan: Operasi aritmetika pada bilangan"
+ },
+ {
+  "no": 2,
+  "type": "mcq_multi",
+  "prompt": "Sebuah toko menjual 1 kg beras seharga Rp12.750,00. Jika seseorang membeli 19,6 kg untuk jenis beras yang sama, berapa perkiraan total harga yang mungkin?\n\nPilih semua jawaban benar! Jawaban benar lebih dari satu.",
+  "options": {
+   "choices": [
+    "Kurang dari Rp260.000,00.",
+    "Lebih besar dari Rp240.000,00.",
+    "Dapat diperkirakan dengan 20×12.500,00.",
+    "Mendekati Rp230.000,00."
+   ]
+  },
+  "correct_answer": [
+   "Kurang dari Rp260.000,00.",
+   "Lebih besar dari Rp240.000,00.",
+   "Dapat diperkirakan dengan 20×12.500,00."
+  ],
+  "images": [],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait cakupan: Estimasi/perkiraan hasil perhitungan"
+ },
+ {
+  "no": 3,
+  "type": "mcq_multi",
+  "prompt": "Terdapat tiga bilangan yang dinyatakan dengan (33 2 − 3 2 ), (8 2 + 296), dan (36 × 35).\n\nBilangan apa saja yang merupakan faktor persekutuan ketiga bilangan tersebut? Pilihlah jawaban yang benar! Jawaban benar lebih dari satu.",
+  "options": {
+   "choices": [
+    "2 3 × 3 3 × 7",
+    "2 2 × 3 2 × 7",
+    "2 2 × 3 2 × 5",
+    "2 × 3 2 × 5"
+   ]
+  },
+  "correct_answer": [
+   "2 2 × 3 2 × 5",
+   "2 × 3 2 × 5"
+  ],
+  "images": [],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait faktorisasi prima bilangan asli"
+ },
+ {
+  "no": 4,
+  "type": "mcq_single",
+  "prompt": "Untuk membuat larutan desinfektan atau larutan pembasmi kuman, dibutuhkan cairan A dan B dengan perbandingan A : B = 3 : 5.\n\nJika tersedia 2,5 liter cairan B, maka volume maksimum larutan yang dapat dibuat adalah ….",
+  "options": {
+   "choices": [
+    "3,6 liter",
+    "4,0 liter",
+    "4,8 liter",
+    "6,4 liter"
+   ]
+  },
+  "correct_answer": "4,0 liter",
+  "images": [],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait cakupan: Rasio (skala, proporsi, dan laju perubahan)"
+ },
+ {
+  "no": 5,
+  "type": "mcq_single",
+  "prompt": "Harga setengah kilogram cabe rawit pada hari ini adalah Rp35.000,00.\n\nJika hari ini Ibu membeli cabe rawit seberat $2\\frac{1}{4}$ kilogram, total harga yang harus dibayar Ibu adalah ….",
+  "options": {
+   "choices": [
+    "Rp175.000,00",
+    "Rp157.500,00",
+    "Rp140.000,00",
+    "Rp87.500,00"
+   ]
+  },
+  "correct_answer": "Rp157.500,00",
+  "images": [],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait perbandingan senilai dan berbalik nilai"
+ },
+ {
+  "no": 6,
+  "type": "mcq_single",
+  "prompt": "Proyek Renovasi Gedung Proyek renovasi suatu gedung sekolah harus diselesaikan paling lambat dalam waktu 60 hari sesuai dengan kontrak kerja yang telah disepakati bersama. Manajer proyek telah menghitung kebutuhan tenaga kerja dengan asumsi setiap pegawai memiliki kemampuan dan produktivitas yang sama setiap harinya. Kemajuan proyek sangat bergantung pada jumlah pegawai; semakin banyak pegawai yang bekerja, maka waktu pengerjaan akan semakin singkat. Pekerjaan dinyatakan selesai jika seluruh beban kerja telah terpenuhi. Jika terjadi kendala pada jumlah pegawai atau waktu kerja, manajer harus melakukan penyesuaian agar total beban kerja tetap terpenuhi tepat waktu. Penyesuaian ini sangat penting dilakukan agar renovasi gedung selesai tepat 60 hari tanpa melanggar batas kontrak yang ada.\n\nBerdasarkan perencanaan awal, renovasi gedung dapat diselesaikan oleh 12 pegawai dalam waktu 60 hari. Jika manajer memutuskan untuk menambah jumlah pegawai menjadi 18 orang agar pekerjaan lebih cepat selesai, maka waktu yang diperlukan untuk menyelesaikan renovasi tersebut adalah…",
+  "options": {
+   "choices": [
+    "30 hari",
+    "40 hari",
+    "45 hari",
+    "90 hari"
+   ]
+  },
+  "correct_answer": "40 hari",
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/95316_dae269e04f8b0f9af69d3e8749c3f29b.png"
+  ],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait perbandingan senilai dan berbalik nilai."
+ },
+ {
+  "no": 7,
+  "type": "statement_grid",
+  "prompt": "Proyek Renovasi Gedung Proyek renovasi suatu gedung sekolah harus diselesaikan paling lambat dalam waktu 60 hari sesuai dengan kontrak kerja yang telah disepakati bersama. Manajer proyek telah menghitung kebutuhan tenaga kerja dengan asumsi setiap pegawai memiliki kemampuan dan produktivitas yang sama setiap harinya. Kemajuan proyek sangat bergantung pada jumlah pegawai; semakin banyak pegawai yang bekerja, maka waktu pengerjaan akan semakin singkat. Pekerjaan dinyatakan selesai jika seluruh beban kerja telah terpenuhi. Jika terjadi kendala pada jumlah pegawai atau waktu kerja, manajer harus melakukan penyesuaian agar total beban kerja tetap terpenuhi tepat waktu. Penyesuaian ini sangat penting dilakukan agar renovasi gedung selesai tepat 60 hari tanpa melanggar batas kontrak yang ada. Rencana awal, renovasi gedung dilakukan oleh 15 pegawai. Namun, pada 10 hari pertama, hanya 10 pegawai yang bekerja karena sebagian lainnya harus beristirahat. Setelah hari ke-10, seluruh pegawai (15 orang) kembali bekerja.\n\nBerdasarkan situasi tersebut, tentukan Benar atau Salah untuk setiap pernyataan berikut tentang penyelesaiaan renovasi gedung tersebut!",
+  "options": {
+   "statements": [
+    "Sisa pekerjaan yang harus diselesaikan setelah hari ke-10 adalah setara dengan pekerjaan 800 hari penuh yang dikerjakan 1 orang.",
+    "Selama 10 hari pertama, proyek mengalami ketertinggalan jadwal yang setara dengan hasil kerja 5 orang selama 10 hari.",
+    "Agar renovasi tetap selesai tepat waktu manajer cukup mempekerjakan kembali 15 pegawai semula tanpa perlu menambah tenaga kerja tambahan."
+   ],
+   "answer_labels": [
+    "Benar",
+    "Salah"
+   ]
+  },
+  "correct_answer": {
+   "answers": [
+    true,
+    true,
+    false
+   ],
+   "grading_mode": "proportional"
+  },
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/90400_dae269e04f8b0f9af69d3e8749c3f29b.png"
+  ],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait perbandingan senilai dan berbalik nilai."
+ },
+ {
+  "no": 8,
+  "type": "mcq_multi",
+  "prompt": "Proyek Renovasi Gedung Proyek renovasi suatu gedung sekolah harus diselesaikan paling lambat dalam waktu 60 hari sesuai dengan kontrak kerja yang telah disepakati bersama. Manajer proyek telah menghitung kebutuhan tenaga kerja dengan asumsi setiap pegawai memiliki kemampuan dan produktivitas yang sama setiap harinya. Kemajuan proyek sangat bergantung pada jumlah pegawai; semakin banyak pegawai yang bekerja, maka waktu pengerjaan akan semakin singkat. Pekerjaan dinyatakan selesai jika seluruh beban kerja telah terpenuhi. Jika terjadi kendala pada jumlah pegawai atau waktu kerja, manajer harus melakukan penyesuaian agar total beban kerja tetap terpenuhi tepat waktu. Penyesuaian ini sangat penting dilakukan agar renovasi gedung selesai tepat 60 hari tanpa melanggar batas kontrak yang ada. Rencana awal renovasi gedung diproyeksikan untuk 20 pegawai. Namun setelah pekerjaan berjalan 24 hari, pekerjaan berhenti total selama 12 hari (tidak ada pegawai yang bekerja) karena kendala cuaca. Manajer proyek melakukan analisis untuk menentukan langkah penyesuaian jumlah pegawai.\n\nBerdasarkan situasi tersebut, berikut ini manakah pernyataan yang sesuai tentang penyelesaian renovasi gedung dalam sisa waktu yang tersedia? Pilih semua jawaban benar! Jawaban benar lebih dari satu.",
+  "options": {
+   "choices": [
+    "Sisa waktu efektif yang tersedia untuk menyelesaikan seluruh sisa pekerjaan adalah 24 hari.",
+    "Beban pekerjaan yang masih tersisa setara dengan hasil kerja 20 orang selama 60 hari.",
+    "Manajer proyek harus menyiapkan total 30 pegawai agar proyek selesai tepat waktu.",
+    "Manajer proyek cukup menambah 5 orang pegawai dari jumlah semula agar renovasi gedung selesai tepat waktu."
+   ]
+  },
+  "correct_answer": [
+   "Sisa waktu efektif yang tersedia untuk menyelesaikan seluruh sisa pekerjaan adalah 24 hari.",
+   "Manajer proyek harus menyiapkan total 30 pegawai agar proyek selesai tepat waktu."
+  ],
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/30999_dae269e04f8b0f9af69d3e8749c3f29b.png"
+  ],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait perbandingan senilai dan berbalik nilai."
+ },
+ {
+  "no": 9,
+  "type": "mcq_single",
+  "prompt": "Alur Pelayanan Donor Darah Kegiatan donor adalah salah satu bentuk aksi kemanusian yang sangat bermanfaat untuk diri sendiri dan orang lain. Setetes darah yang disumbangkan dapat memberikan harapan hidup bagi orang lain yang membutuhkan, terutama mereka yang mengalami kecelakaan, setelah menjalani operasi, atau menderita penyakit yang serius. Tak hanya untuk penerima, pendonor juga bisa mendapatkan manfaat. Diantaranya bermanfaat untuk mendeteksi penyakit, meningkatkan produksi sel darah, dan menjaga kesehatan jantung. Oleh karena itu disarankan untuk melakukan donor darah tiga bulan setelah donor darah terakhir. Biasanya aksi donor darah difasilitasi oleh Palang Merah Indonesia (PMI). Berikut adalah alur kegiatan donor darah di sebuah posko PMI. Seorang pendonor darah mendatangi posko PMI. Kebetulan saat ini sedang tidak ada antrian sehingga orang tersebut dapat langsung dilayani.\n\nJika tidak ada kendala pada pelayanan donor darah, apa yang sedang dilakukan pendonor tersebut setelah 25 menit berlalu?",
+  "options": {
+   "choices": [
+    "Tahap pemeriksaan kesehatan",
+    "Duduk di kursi tunggu",
+    "Proses pengambilan darah",
+    "Istirahat di ruang pemulihan"
+   ]
+  },
+  "correct_answer": "Proses pengambilan darah",
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/50398_e022769b992c16226c3f8ddc84c78b3c.png"
+  ],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Menyelesaikan masalah sehari-hari terkait laju perubahan."
+ },
+ {
+  "no": 10,
+  "type": "mcq_multi",
+  "prompt": "Alur Pelayanan Donor Darah Kegiatan donor adalah salah satu bentuk aksi kemanusian yang sangat bermanfaat untuk diri sendiri dan orang lain. Setetes darah yang disumbangkan dapat memberikan harapan hidup bagi orang lain yang membutuhkan, terutama mereka yang mengalami kecelakaan, setelah menjalani operasi, atau menderita penyakit yang serius. Tak hanya untuk penerima, pendonor juga bisa mendapatkan manfaat. Diantaranya bermanfaat untuk mendeteksi penyakit, meningkatkan produksi sel darah, dan menjaga kesehatan jantung. Oleh karena itu disarankan untuk melakukan donor darah tiga bulan setelah donor darah terakhir. Biasanya aksi donor darah difasilitasi oleh Palang Merah Indonesia (PMI). Berikut adalah alur kegiatan donor darah di sebuah posko PMI. Pada suatu waktu, Yuda baru saja sampai di posko PMI untuk melakukan donor darah. Diketahui bahwa Rama dan Fajar juga berada di posko PMI tersebut. Rama sedang menunggu antrian untuk proses pengambilan darah, sedangkan Fajar sedang proses pengambilan darah sejak 16 menit yang lalu. Mereka tidak ada janji untuk pulang bersama ketika donor darah selesai.\n\nBerikut ini pernyataan manakah yang mungkin akan terjadi di posko PMI tersebut? Pilih semua jawaban benar! Jawaban benar lebih dari satu.",
+  "options": {
+   "choices": [
+    "Yuda sempat bertemu Rama di kursi tunggu.",
+    "Ketika Yuda proses pengambilan darah, Fajar telah pulang lebih dulu.",
+    "Yuda menunggu di kursi tunggu selama 30 menit.",
+    "Sejak pertama kali datang hingga pulang, Yuda menghabiskan waktu lebih dari 1,5 jam."
+   ]
+  },
+  "correct_answer": [
+   "Yuda sempat bertemu Rama di kursi tunggu.",
+   "Sejak pertama kali datang hingga pulang, Yuda menghabiskan waktu lebih dari 1,5 jam."
+  ],
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/33365_e022769b992c16226c3f8ddc84c78b3c.png"
+  ],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Menyelesaikan masalah sehari-hari terkait laju perubahan."
+ },
+ {
+  "no": 11,
+  "type": "statement_grid",
+  "prompt": "Alur Pelayanan Donor Darah Kegiatan donor adalah salah satu bentuk aksi kemanusian yang sangat bermanfaat untuk diri sendiri dan orang lain. Setetes darah yang disumbangkan dapat memberikan harapan hidup bagi orang lain yang membutuhkan, terutama mereka yang mengalami kecelakaan, setelah menjalani operasi, atau menderita penyakit yang serius. Tak hanya untuk penerima, pendonor juga bisa mendapatkan manfaat. Diantaranya bermanfaat untuk mendeteksi penyakit, meningkatkan produksi sel darah, dan menjaga kesehatan jantung. Oleh karena itu disarankan untuk melakukan donor darah tiga bulan setelah donor darah terakhir. Biasanya aksi donor darah difasilitasi oleh Palang Merah Indonesia (PMI). Berikut adalah alur kegiatan donor darah di sebuah posko PMI. Posko PMI menambahkan satu tempat lagi untuk proses pengambilan darah dan di tahap pemulihan. Sehingga dapat melayani 2 orang sekaligus para proses pengambilan darah. Pada hari ini saat pukul 11.30 terlihat sudah ada 2 orang yang sedang berada di ruang pemulihan. Salah seorang baru saja memulai tahap pemulihan dan satu orang lainnya sudah berjalan 15 menit. Adapula 1 orang calon pendonor yang akan melakukan pendaftaran, 1 orang akan melakukan pemeriksaan kesehatan, 1 orang di kursi tunggu, 2 orang sedang proses pengambilan darah.\n\nTentukan Benar atau Salah untuk setiap pernyataan berikut tentang situasi di lokasi donor darah pada hari tersebut!",
+  "options": {
+   "statements": [
+    "Posko PMI mulai didatangi calon pendonor sejak pukul 10.30.",
+    "Ada kemungkinan terdapat 3 orang di ruang tunggu.",
+    "Pada pukul 11.00 belum ada pendonor yang memasuki tahap pemulihan."
+   ],
+   "answer_labels": [
+    "Benar",
+    "Salah"
+   ]
+  },
+  "correct_answer": {
+   "answers": [
+    true,
+    false,
+    true
+   ],
+   "grading_mode": "proportional"
+  },
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/46653_e022769b992c16226c3f8ddc84c78b3c.png"
+  ],
+  "theme": "Bilangan",
+  "topic": "Bilangan Real",
+  "kompetensi": "Menyelesaikan masalah sehari-hari terkait laju perubahan."
+ },
+ {
+  "no": 12,
+  "type": "mcq_single",
+  "prompt": "Perhatikan bentuk aljabar berikut. $(x+2)(3+y)+(x+2)(1-y)$\n\nBentuk sederhana dari bentuk aljabar tersebut adalah ….",
+  "options": {
+   "choices": [
+    "$4(x+2)$",
+    "$x+2+4y$",
+    "$4(x+8)$",
+    "$4x+2y$"
+   ]
+  },
+  "correct_answer": "$4(x+2)$",
+  "images": [],
+  "theme": "Aljabar",
+  "topic": "Bentuk Aljabar",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait cakupan: Bentuk aljabar dan sifat-sifat operasinya (komutatif, asosiatif, dan distributif)."
+ },
+ {
+  "no": 13,
+  "type": "mcq_multi",
+  "prompt": "Sebuah jasa pengantaran barang mengenakan biaya sebagai berikut: Biaya tetap pemesanan sebesar Rp12.000,00. Biaya pengantaran Rp4.000,00 per kilometer. Seorang pelanggan memiliki anggaran tidak lebih dari Rp40.000,00 untuk satu kali pemesanan jasa antar.\n\nBerikut ini, manakah pernyataan yang benar tentang permasalahan tersebut? Pilih semua jawaban benar! Jawaban benar lebih dari satu.",
+  "options": {
+   "choices": [
+    "Apabila $x$ menyatakan jarak pengantaran (dalam km), maka permasalahan dapat dimodelkan dengan 4.000x + 12.000 ≤ 40.000 .",
+    "Jarak pengantaran maksimum yang masih dapat dipilih pelanggan adalah 7 km.",
+    "Jika jarak pengantaran 8 km, maka biaya total melebihi anggaran.",
+    "Penambahan jarak antar 1 km akan menambah biaya sebesar Rp16.000,00."
+   ]
+  },
+  "correct_answer": [
+   "Apabila $x$ menyatakan jarak pengantaran (dalam km), maka permasalahan dapat dimodelkan dengan 4.000x + 12.000 ≤ 40.000 .",
+   "Jarak pengantaran maksimum yang masih dapat dipilih pelanggan adalah 7 km.",
+   "Jika jarak pengantaran 8 km, maka biaya total melebihi anggaran."
+  ],
+  "images": [],
+  "theme": "Aljabar",
+  "topic": "Persamaan dan Pertidaksamaan Linier",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait pertidaksamaan linear satu variabel"
+ },
+ {
+  "no": 14,
+  "type": "statement_grid",
+  "prompt": "Misalkan a dan b merupakan dua bilangan real sehingga sistem persamaan linear (SPL) $\\begin{cases}2x+ay=4\\\\bx-2y=-1\\end{cases}$ mempunyai solusi (𝑥, 𝑦) = (5,-2).\n\nTentukan Benar atau Salah untuk setiap pernyataan berikut terkait dengan nilai a dan b !",
+  "options": {
+   "statements": [
+    "a merupakan bilangan prima.",
+    "b merupakan bilangan ganjil.",
+    "10 a + b = 31."
+   ],
+   "answer_labels": [
+    "Benar",
+    "Salah"
+   ]
+  },
+  "correct_answer": {
+   "answers": [
+    true,
+    true,
+    false
+   ],
+   "grading_mode": "proportional"
+  },
+  "images": [],
+  "theme": "Aljabar",
+  "topic": "Persamaan dan Pertidaksamaan Linier",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait sistem persamaan linear dua variabel"
+ },
+ {
+  "no": 15,
+  "type": "mcq_single",
+  "prompt": "Sebuah pabrik memproduksi batang logam. Fungsi $f(x)=5x+10$ menyatakan berat total (kg) untuk $x$ batang logam.\n\nJika pabrik memproduksi 7 batang logam, berapa total berat logam yang dihasilkan?",
+  "options": {
+   "choices": [
+    "35 kg.",
+    "45 kg.",
+    "50 kg.",
+    "70 kg."
+   ]
+  },
+  "correct_answer": "45 kg.",
+  "images": [],
+  "theme": "Aljabar",
+  "topic": "Fungsi",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait cakupan: Relasi dan fungsi (domain, kodomain, range), serta penyajiannya"
+ },
+ {
+  "no": 16,
+  "type": "mcq_single",
+  "prompt": "Perhatikan susunan titik berikut! Pola ke-1 ● Pola ke-2 ● ● ● Pola ke-3 ● ● ● ● ● ● Pola ke-4 ● ● ● ● ● ● ● ● ● ●\n\nJika pola tersebut berlanjut, maka jumlah titik pada pola ke-6 adalah ….",
+  "options": {
+   "choices": [
+    "15",
+    "18",
+    "21",
+    "28"
+   ]
+  },
+  "correct_answer": "21",
+  "images": [],
+  "theme": "Aljabar",
+  "topic": "Barisan dan Deret",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait cakupan: Barisan berhingga bilangan"
+ },
+ {
+  "no": 17,
+  "type": "statement_grid",
+  "prompt": "Seorang tukang memotong papan kayu dengan berbagai ukuran panjang. Potongan pertama panjangnya 240 cm, dan setiap potongan berikutnya lebih pendek 12 cm dari potongan sebelumnya. Tukang tersebut menghasilkan 9 potongan kayu.\n\nTentukan Benar atau Salah untuk setiap pernyataan berikut tentang potongan kayu yang dihasilkan tukang tersebut!",
+  "options": {
+   "statements": [
+    "Panjang potongan ke-5 adalah 190 cm.",
+    "Panjang potongan terakhir adalah 144 cm.",
+    "Selisih panjang antara potongan ke-2 dan potongan ke-8 adalah 72 cm."
+   ],
+   "answer_labels": [
+    "Benar",
+    "Salah"
+   ]
+  },
+  "correct_answer": {
+   "answers": [
+    false,
+    true,
+    true
+   ],
+   "grading_mode": "proportional"
+  },
+  "images": [],
+  "theme": "Aljabar",
+  "topic": "Barisan dan Deret",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait cakupan: Barisan berhingga bilangan"
+ },
+ {
+  "no": 18,
+  "type": "statement_grid",
+  "prompt": "Desain jembatan yang tepat sangat penting untuk memperkuat struktur karena menentukan kestabilan, ketahanan, dan keselamatan jembatan dalam menghadapi beban dan kondisi lingkungan. Salah satu contoh desain jembatan tampak pada gambar. Bagian rangka jembatan tersebut dapat digambarkan dengan sketsa garis sebagai berikut: Diketahui garis L1 sejajar dengan garis L2 dan garis L3 sejajar dengan garis L4.\n\nJika besar sudut A adalah 50°, tentukan Benar atau Salah untuk setiap pernyataan berikut!",
+  "options": {
+   "statements": [
+    "Besar sudut D adalah 50°",
+    "Besar sudut C dapat ditentukan dengan menggunakan aturan sudut berpelurus yaitu sebesar 50°",
+    "Sudut B dan E sama besar yaitu 130°"
+   ],
+   "answer_labels": [
+    "Benar",
+    "Salah"
+   ]
+  },
+  "correct_answer": {
+   "answers": [
+    true,
+    false,
+    true
+   ],
+   "grading_mode": "proportional"
+  },
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/60727_cfc19058b99ab6e2f641ae8609ab936d.png",
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/60727_b196052b1cea00debfc1737fd06d538d.png"
+  ],
+  "theme": "Geometri dan Pengukuran",
+  "topic": "Objek Geometri",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait hubungan antar-sudut yang terbentuk oleh dua garis yang berpotongan, dan oleh dua garis sejajar yang dipotong suatu garis transversal (termasuk penentuan besar sudut dalam segitiga)"
+ },
+ {
+  "no": 19,
+  "type": "statement_grid",
+  "prompt": "Perhatikan gambar berikut ini!\n\nTentukan Benar atau Salah untuk setiap pernyataan berikut tentang bangun segitiga pada gambar tersebut!",
+  "options": {
+   "statements": [
+    "Segitiga ABD dan segitiga CAD saling sebangun.",
+    "Panjang sisi BC adalah 15 cm.",
+    "Panjang sisi AC adalah 10 cm."
+   ],
+   "answer_labels": [
+    "Benar",
+    "Salah"
+   ]
+  },
+  "correct_answer": {
+   "answers": [
+    true,
+    true,
+    false
+   ],
+   "grading_mode": "proportional"
+  },
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/93970_63b8178cadc61b3ce5f3f2c3e0a45ebc.png"
+  ],
+  "theme": "Geometri dan Pengukuran",
+  "topic": "Objek Geometri",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait kekongruenan dan kesebangunan bangun datar"
+ },
+ {
+  "no": 20,
+  "type": "statement_grid",
+  "prompt": "Di sebuah taman kota berbentuk persegi panjang, terdapat sebuah kolam berbentuk lingkaran yang terletak tepat di tengah-tengah taman, seperti terlihat pada gambar berikut. Area taman lainnya (area hijau pada gambar) akan ditanami rumput.\n\nTentukan Benar atau Salah untuk setiap pernyataan berikut tentang luas area kolam dan area yang ditanami rumput! (Gunakan π=22/7)",
+  "options": {
+   "statements": [
+    "Selisih antara luas taman dan luas kolam lebih dari 240 m².",
+    "Jika diameter kolam ditambah 1 m, luas kolam bertambah lebih dari 7 m².",
+    "Luas daerah yang ditanami rumput kurang dari 240 m²."
+   ],
+   "answer_labels": [
+    "Benar",
+    "Salah"
+   ]
+  },
+  "correct_answer": {
+   "answers": [
+    true,
+    true,
+    false
+   ],
+   "grading_mode": "proportional"
+  },
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/87550_55e6995fcb9226412cf800683fa5d7bf.png"
+  ],
+  "theme": "Geometri dan Pengukuran",
+  "topic": "Pengukuran",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait keliling dan luas bangun datar (daerah segi banyak dan daerah lingkaran, serta daerah gabungannya)"
+ },
+ {
+  "no": 21,
+  "type": "mcq_single",
+  "prompt": "Pak Doni mempunyai rumah dengan tampak samping kanan sebagai berikut. Pak Doni ingin mengecat dinding samping kanan rumah tersebut. Terdapat empat merek cat di pasaran yang dapat digunakan Pak Doni seperti ditunjukkan pada tabel berikut. Merek Cat 1 kg Dapat Mengecat Kemasan yang Tersedia di Toko Momilex 7 m2 5 kg-an dan 10 kg-an Josun 8 m2 2 kg-an dan 10 kg-an Bulux 10 m2 2 kg-an dan 5 kg-an Noppin 9 m2 1 kg-an dan 5 kg-an\n\nPak Doni ingin membeli cat dengan merek yang sama. Supaya sisa cat yang dibeli paling sedikit, cat merek apakah yang sebaiknya dipilih?",
+  "options": {
+   "choices": [
+    "Momilex.",
+    "Josun.",
+    "Bulux.",
+    "Noppin."
+   ]
+  },
+  "correct_answer": "Bulux.",
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/04673_ab807443994bec48d31d2aaf3a8cb572.png"
+  ],
+  "theme": "Geometri dan Pengukuran",
+  "topic": "Objek Geometri",
+  "kompetensi": "Memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait keliling dan luas bangun datar (daerah segi banyak dan daerah lingkaran, serta daerah gabungannya)"
+ },
+ {
+  "no": 22,
+  "type": "mcq_single",
+  "prompt": "Sebuah usaha rumahan akan mengemas produk makanan menggunakan kemasan berbentuk prisma segitiga yang dibuat dari karton. Setiap kemasan dibuat dari satu jaring-jaring utuh Berikut gambar kemasan dan sketsa jaring-jaringnya. Karton yang tersedia untuk produksi hari itu memiliki ukuran 50 cm x 100 cm. Pemotongan karton dilakukan dengan rapi dan memperhatikan tata letak. Jaring-jaring kemasan dibuat dengan kertas yang saling terhubung dan bukan menggabungkan hasil potongan lain.\n\nBanyak kemasan maksimum yang dapat dibuat adalah ….",
+  "options": {
+   "choices": [
+    "4 kemasan",
+    "8 kemasan",
+    "9 kemasan",
+    "14 kemasan"
+   ]
+  },
+  "correct_answer": "8 kemasan",
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/98819_4a0a2296a54ae8c969252e2f1ea619a3.png"
+  ],
+  "theme": "Geometri dan Pengukuran",
+  "topic": "Objek Geometri",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait jaring-jaring bangun ruang (prisma, tabung, limas dan kerucut)"
+ },
+ {
+  "no": 23,
+  "type": "mcq_single",
+  "prompt": "Perhatikan posisi robot pembersih pada gambar berikut! Robot tersebut kemudian akan bergerak mengikuti translasi T (4, -2).\n\nPosisi robot setelah berpindah sesuai translasi tersebut adalah….",
+  "options": {
+   "choices": [
+    "titik A",
+    "titik B",
+    "titik C",
+    "titik D"
+   ]
+  },
+  "correct_answer": "titik C",
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/42272_51f00489b5aab38bdb3611652829e692.png"
+  ],
+  "theme": "Geometri dan Pengukuran",
+  "topic": "Transformasi Geometri",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait transformasi tunggal (refleksi, translasi, rotasi, dan dilatasi) terhadap titik, garis, dan bangun datar pada bidang"
+ },
+ {
+  "no": 24,
+  "type": "mcq_single",
+  "prompt": "Perhatikan gambar berikut!\n\nTransformasi tunggal yang paling tepat untuk mengubah posisi segitiga ABC menjadi segitiga A′B′C′ adalah ….",
+  "options": {
+   "choices": [
+    "translasi (−3, 1)",
+    "refleksi terhadap garis $y=x$",
+    "rotasi 90º berlawanan arah jarum jam dengan pusat di titik asal",
+    "refleksi terhadap sumbu-Y"
+   ]
+  },
+  "correct_answer": "rotasi 90º berlawanan arah jarum jam dengan pusat di titik asal",
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/02060_69de27c2558a174de3ead1634c89bf18.png"
+  ],
+  "theme": "Geometri dan Pengukuran",
+  "topic": "Transformasi Geometri",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait transformasi tunggal (refleksi, translasi, rotasi, dan dilatasi) terhadap titik, garis, dan bangun datar pada bidang"
+ },
+ {
+  "no": 25,
+  "type": "mcq_single",
+  "prompt": "Dalam pembangunan sebuah monumen peringatan, kontraktor menggunakan bata ringan berbentuk balok untuk menyusun bagian dalam monumen. Desain monumen peringatan diberikan pada gambar berikut: Setiap bata ringan yang digunakan berukuran 60 cm × 20 cm × 10 cm . Susunan bata ringan pada monumen tersebut dianggap tersusun rapat tanpa celah.\n\nBerapakah jumlah minimal bata ringan yang diperlukan untuk membangun monumen tersebut?",
+  "options": {
+   "choices": [
+    "16.800 buah",
+    "18.000 buah",
+    "19.200 buah",
+    "21.600 buah"
+   ]
+  },
+  "correct_answer": "18.000 buah",
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/40036_44805eb032d7155040c7bd2b765290ef.png"
+  ],
+  "theme": "Geometri dan Pengukuran",
+  "topic": "Pengukuran",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait volume bangun ruang (prisma, limas, dan bola)"
+ },
+ {
+  "no": 26,
+  "type": "mcq_single",
+  "prompt": "Petugas perpustakaan di suatu sekolah melakukan pendataan jumlah buku yang dipinjam siswa kelas IX selama 5 hari berturut-turut. Hasil pendataan disajikan dalam diagram berikut:\n\nPernyataan yang tepat tentang informasi pada diagram batang tersebut adalah...",
+  "options": {
+   "choices": [
+    "Jumlah buku yang dipinjam setiap hari selalu meningkat.",
+    "Jumlah peminjaman buku pada Kamis lebih sedikit dari pada pada Selasa.",
+    "Selisih jumlah peminjaman buku antara Senin dan Jumat lebih dari 10 buku.",
+    "Hari dengan jumlah peminjaman buku terbanyak adalah Rabu."
+   ]
+  },
+  "correct_answer": "Hari dengan jumlah peminjaman buku terbanyak adalah Rabu.",
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/77973_3171874d35068c7ea0de2a630786e92a.png"
+  ],
+  "theme": "Data dan Peluang",
+  "topic": "Data",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait perumusan pertanyaan untuk mendapatkan data, serta penyajian dan peginterpretasian data"
+ },
+ {
+  "no": 27,
+  "type": "mcq_multi",
+  "prompt": "Sebuah koperasi sekolah ingin mengevaluasi penjualan alat tulis selama 5 bulan terakhir. Berikut disajikan data jumlah pengunjung koperasi sekolah selama 5 bulan dan data persentase alat tulis yang terjual.\n\nBerdasarkan kedua data tersebut, tentukan manakah pernyataan yang benar untuk setiap pernyataan berikut? Pilih semua jawaban benar! Jawaban benar lebih dari satu.",
+  "options": {
+   "choices": [
+    "Peningkatan jumlah pengunjung paling signifikan (paling besar) terjadi pada periode bulan April ke Mei.",
+    "Jika setiap pengunjung di bulan Mei membeli satu alat tulis, maka jumlah pulpen yang terjual adalah 64 buah.",
+    "Berdasarkan tren pada diagram garis, jumlah pengunjung koperasi selalu mengalami kenaikan secara konsisten setiap bulannya.",
+    "Pada bulan Mei, jumlah buku tulis yang terjual adalah 50 buah."
+   ]
+  },
+  "correct_answer": [
+   "Peningkatan jumlah pengunjung paling signifikan (paling besar) terjadi pada periode bulan April ke Mei.",
+   "Jika setiap pengunjung di bulan Mei membeli satu alat tulis, maka jumlah pulpen yang terjual adalah 64 buah."
+  ],
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/99496_0d7a24d9e6b2b75268ec141d3facc51f.png",
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/99496_1670e6faee1a2b74899c51360cfe069c.png"
+  ],
+  "theme": "Data dan Peluang",
+  "topic": "Data",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait perumusan pertanyaan untuk mendapatkan data, serta penyajian dan peginterpretasian data"
+ },
+ {
+  "no": 28,
+  "type": "mcq_single",
+  "prompt": "Berdasarkan data diketahui bahwa rata-rata berat satu butir telur kecil 45 gram, satu telur sedang 55 gram, dan satu telur besar 65 gram. Seorang karyawan toko bahan pangan, sedang mengemas setiap 10 butir telur ke dalam satu kemasan dengan ketentuan bahwa rata-rata berat per telur dalam setiap kemasan tersebut adalah 55 gram.\n\nJika dalam satu kemasan sudah berisi 1 telur besar, 5 telur sedang, dan 2 telur kecil, maka dua telur tambahan yang harus dipilih supaya tetap memenuhi aturan pengemasan adalah ….",
+  "options": {
+   "choices": [
+    "2 telur sedang",
+    "2 telur besar",
+    "1 telur besar dan 1 telur kecil",
+    "1 telur besar dan 1 telur sedang"
+   ]
+  },
+  "correct_answer": "1 telur besar dan 1 telur sedang",
+  "images": [],
+  "theme": "Data dan Peluang",
+  "topic": "Data",
+  "kompetensi": "Memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait penentuan dan penaksiran rerata (mean), median, modus, dan jangkauan (range) dari data"
+ },
+ {
+  "no": 29,
+  "type": "mcq_single",
+  "prompt": "Untuk menjaga dan meningkatkan kualitas produksi, tim bagian quality control memeriksa kualitas lampu yang diproduksi pada suatu waktu. Berdasarkan pemeriksaan yang dilakukan, diperoleh data sebagai berikut: Jumlah lampu dengan kondisi baik: 980 buah Jumlah lampu dengan kondisi rusak: 20 buah Tim tersebut melakukan kesalahan dengan meletakkan keseluruhan lampu tersebut di dalam suatu wadah.\n\nJika satu lampu dipilih secara acak dari wadah tersebut, peluang bahwa lampu yang terpilih adalah lampu dengan kondisi rusak adalah ...",
+  "options": {
+   "choices": [
+    "$\\frac{1}{50}$",
+    "$\\frac{1}{49}$",
+    "$\\frac{2}{49}$",
+    "$\\frac{49}{50}$"
+   ]
+  },
+  "correct_answer": "$\\frac{1}{50}$",
+  "images": [],
+  "theme": "Data dan Peluang",
+  "topic": "Peluang",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait peluang dan frekuensi relatif dari kejadian tunggal"
+ },
+ {
+  "no": 30,
+  "type": "mcq_multi",
+  "prompt": "Sebuah sensor otomatis diuji untuk mendeteksi kendaraan yang melintas. Pengujian dilakukan dalam tiga tahap dengan hasil sebagai berikut: Data tersebut digunakan untuk memperkirakan peluang kegagalan sensor pada satu kali deteksi berikutnya.\n\nBerdasarkan hasil pengujian sensor pada tabel, manakah pernyataan yang benar tentang pengujian sensor tersebut? Pilih semua jawaban benar! Jawaban benar lebih dari satu.",
+  "options": {
+   "choices": [
+    "Frekuensi relatif atau peluang kegagalan sensor dari seluruh pengujian adalah 0,124.",
+    "Frekuensi relatif atau peluang kegagalan pada Tahap III lebih besar daripada pada Tahap I.",
+    "Jika dilakukan 1.000 pengujian tambahan, frekuensi harapan sensor tersebut akan gagal adalah sebanyak 124 kali.",
+    "Peluang sensor berhasil pada satu kali deteksi berikutnya adalah sebesar 0,91"
+   ]
+  },
+  "correct_answer": [
+   "Frekuensi relatif atau peluang kegagalan sensor dari seluruh pengujian adalah 0,124.",
+   "Frekuensi relatif atau peluang kegagalan pada Tahap III lebih besar daripada pada Tahap I.",
+   "Jika dilakukan 1.000 pengujian tambahan, frekuensi harapan sensor tersebut akan gagal adalah sebanyak 124 kali."
+  ],
+  "images": [
+   "https://pusmendik.kemendikdasmen.go.id/tka/cbt_images/38821_abf9102ddf3d1a1b01e7a60ba457e7de.png"
+  ],
+  "theme": "Data dan Peluang",
+  "topic": "Peluang",
+  "kompetensi": "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait peluang dan frekuensi relatif dari kejadian tunggal"
+ }
+]

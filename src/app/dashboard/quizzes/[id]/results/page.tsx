@@ -54,13 +54,13 @@ export default async function QuizResultsPage({
   const ranked = rankAttempts(typedAttempts);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="space-y-5">
       <Link href={`/dashboard/quizzes/${id}/edit`} className="text-sm text-gray-500 underline">
         ← Kembali ke Editor
       </Link>
 
-      <div className="mt-4 mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Hasil: {(quiz as Quiz).title}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-gray-900">Hasil: {(quiz as Quiz).title}</h1>
         <a
           href={`/dashboard/quizzes/${id}/results/export`}
           className="text-sm font-medium underline"
@@ -70,7 +70,7 @@ export default async function QuizResultsPage({
       </div>
 
       {perQuestionStats.length > 0 && (
-        <div className="mb-8 rounded border border-gray-200 p-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-medium text-gray-500">Analitik per Soal</h2>
           <div className="flex flex-col gap-2">
             {perQuestionStats.map(({ question, accuracy, answeredCount }, i) => (
@@ -89,7 +89,7 @@ export default async function QuizResultsPage({
       )}
 
       {ranked.length > 0 && (
-        <div className="mb-8 rounded border border-gray-200 p-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="mb-3 text-sm font-medium text-gray-500">🏆 Leaderboard</h2>
           <div className="flex flex-col gap-1">
             {ranked.slice(0, 10).map(({ attempt, rank }) => {
@@ -111,9 +111,9 @@ export default async function QuizResultsPage({
         </div>
       )}
 
-      <div className="flex flex-col divide-y divide-gray-200 rounded border border-gray-200">
+      <div className="flex flex-col divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         {typedAttempts.length === 0 && (
-          <p className="p-6 text-sm text-gray-500">Belum ada murid yang mengerjakan kuis ini.</p>
+          <p className="p-6 text-sm text-gray-500">Belum ada murid yang mengerjakan paket soal ini.</p>
         )}
         {typedAttempts.map((attempt) => (
           <Link

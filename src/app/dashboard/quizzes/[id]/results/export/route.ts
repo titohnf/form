@@ -16,7 +16,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { data: quiz } = await supabase.from("quizzes").select("*").eq("id", id).single();
   if (!quiz) {
-    return NextResponse.json({ error: "Kuis tidak ditemukan" }, { status: 404 });
+    return NextResponse.json({ error: "Paket soal tidak ditemukan" }, { status: 404 });
   }
 
   const { data: questions } = await supabase

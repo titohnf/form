@@ -27,26 +27,25 @@ const snippets: { label: string; title: string; snippet: string }[] = [
 /**
  * Text field with a LaTeX toolbar and a live KaTeX preview, so tutors can write
  * math without knowing the `$...$` syntax by heart. Renders a plain textarea
- * when `rows` is given, otherwise a single-line input. The value is submitted
- * under `name` exactly as typed — the server stores the raw LaTeX and the
- * student page renders it with the same <MathText>.
+ * when `rows` is given, otherwise a single-line input. Controlled: the owner
+ * keeps the raw LaTeX and decides when to persist it, and the student page
+ * renders that same string with <MathText>.
  */
 export default function MathField({
-  name,
-  defaultValue = "",
+  value,
+  onChange,
   rows,
   required,
   placeholder,
   hint,
 }: {
-  name: string;
-  defaultValue?: string;
+  value: string;
+  onChange: (next: string) => void;
   rows?: number;
   required?: boolean;
   placeholder?: string;
   hint?: React.ReactNode;
 }) {
-  const [value, setValue] = useState(defaultValue);
   const [showToolbar, setShowToolbar] = useState(false);
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
 
@@ -56,7 +55,7 @@ export default function MathField({
     const text = snippet.replace("#", "");
 
     if (!el) {
-      setValue((prev) => prev + text);
+      onChange(value + text);
       return;
     }
 
@@ -72,7 +71,7 @@ export default function MathField({
     el.value = next;
     el.focus();
     el.setSelectionRange(caret, caret);
-    setValue(next);
+    onChange(next);
   }
 
   const fieldClass = "w-full rounded border border-gray-300 px-3 py-2";
@@ -83,23 +82,21 @@ export default function MathField({
       {rows ? (
         <textarea
           ref={ref}
-          name={name}
           rows={rows}
           required={required}
           placeholder={placeholder}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
           onFocus={() => setShowToolbar(true)}
           className={fieldClass}
         />
       ) : (
         <input
           ref={ref}
-          name={name}
           required={required}
           placeholder={placeholder}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
           onFocus={() => setShowToolbar(true)}
           className={fieldClass}
         />

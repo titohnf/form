@@ -1,4 +1,10 @@
-import type { MatchingOptions, OrderingOptions, Question } from "@/lib/types";
+import type {
+  MatchingOptions,
+  OrderingOptions,
+  Question,
+  StatementGridAnswer,
+  StatementGridOptions,
+} from "@/lib/types";
 
 export interface GradeResult {
   autoScore: number | null;
@@ -60,6 +66,27 @@ export function gradeAnswer(question: Question, response: unknown): GradeResult 
       if (keys.length === 0) return { autoScore: 0, needsManualGrading: false };
       const correctCount = keys.filter((key, i) => normalize(key) === normalize(submitted[i])).length;
       return { autoScore: (question.weight * correctCount) / keys.length, needsManualGrading: false };
+    }
+    case "statement_grid": {
+      const statements = (question.options as StatementGridOptions | null)?.statements ?? [];
+      const key = (question.correct_answer ?? {}) as Partial<StatementGridAnswer>;
+      const answers = Array.isArray(key.answers) ? key.answers : [];
+      const submitted = Array.isArray(response) ? (response as unknown[]) : [];
+      if (statements.length === 0) return { autoScore: 0, needsManualGrading: false };
+
+      // `typeof` guards the unmarked rows: without it an unanswered statement
+      // (null) would match an unmarked key entry (null) and score as correct.
+      const correctCount = statements.filter(
+        (_, i) => typeof answers[i] === "boolean" && submitted[i] === answers[i],
+      ).length;
+
+      const score =
+        key.grading_mode === "all_or_nothing"
+          ? correctCount === statements.length
+            ? question.weight
+            : 0
+          : (question.weight * correctCount) / statements.length;
+      return { autoScore: score, needsManualGrading: false };
     }
     case "essay":
     case "upload_file":
