@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isMissingBloomColumn } from "@/lib/bloom";
+import { missingColumn, without } from "@/lib/missing-column";
 import type { QuestionPatch } from "@/lib/types";
+
+/** Kolom yang menyusul lewat migrasi; boleh belum ada saat kode ini berjalan. */
+const OPTIONAL_COLUMNS = ["bloom_level", "template"];
 
 /**
  * Autosave target for a bank item, mirroring `saveQuestion` for quiz questions.
@@ -13,16 +16,20 @@ import type { QuestionPatch } from "@/lib/types";
  */
 export async function saveBankItem(itemId: string, patch: QuestionPatch) {
   const supabase = await createClient();
-  const { type, prompt, weight, options, correct_answer, explanation, stimulus_images } = patch;
-  const content = { type, prompt, weight, options, correct_answer, explanation, stimulus_images };
+  const { branching: _branching, ...content } = patch;
+  void _branching;
 
-  const { error } = await supabase
-    .from("question_bank_items")
-    .update({ ...content, bloom_level: patch.bloom_level })
-    .eq("id", itemId);
+  // Kolom yang menyusul lewat migrasi dibuang satu per satu kalau belum ada.
+  const dropped: string[] = [];
+  for (let attempt = 0; attempt <= OPTIONAL_COLUMNS.length; attempt += 1) {
+    const { error } = await supabase
+      .from("question_bank_items")
+      .update(without({ ...content }, dropped))
+      .eq("id", itemId);
 
-  if (isMissingBloomColumn(error)) {
-    await supabase.from("question_bank_items").update(content).eq("id", itemId);
+    const missing = missingColumn(error, OPTIONAL_COLUMNS);
+    if (!missing) return;
+    dropped.push(missing);
   }
 }
 

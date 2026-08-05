@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { generateShareCode } from "@/lib/share-code";
-import { isMissingBloomColumn } from "@/lib/bloom";
+import { missingColumn, without } from "@/lib/missing-column";
 import type { QuestionPatch, QuestionType, QuizSettings } from "@/lib/types";
 
 export async function updateQuizMeta(quizId: string, formData: FormData) {
@@ -148,6 +148,9 @@ export async function addQuestion(quizId: string, nextOrderIndex: number) {
   revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
 }
 
+/** Kolom yang menyusul lewat migrasi; boleh belum ada saat kode ini berjalan. */
+const OPTIONAL_COLUMNS = ["bloom_level", "template"];
+
 /**
  * Autosave target for the question editor. Takes an already-parsed patch
  * instead of FormData because the editor holds its fields in React state and
@@ -159,12 +162,19 @@ export async function addQuestion(quizId: string, nextOrderIndex: number) {
  */
 export async function saveQuestion(questionId: string, patch: QuestionPatch) {
   const supabase = await createClient();
-  const { error } = await supabase.from("questions").update(patch).eq("id", questionId);
 
-  if (isMissingBloomColumn(error)) {
-    const { bloom_level, ...rest } = patch;
-    void bloom_level;
-    await supabase.from("questions").update(rest).eq("id", questionId);
+  // Kolom yang menyusul lewat migrasi dibuang satu per satu kalau belum ada,
+  // supaya menyunting soal tidak berhenti bekerja sambil menunggu deploy skema.
+  const dropped: string[] = [];
+  for (let attempt = 0; attempt <= OPTIONAL_COLUMNS.length; attempt += 1) {
+    const { error } = await supabase
+      .from("questions")
+      .update(without({ ...patch }, dropped))
+      .eq("id", questionId);
+
+    const missing = missingColumn(error, OPTIONAL_COLUMNS);
+    if (!missing) return;
+    dropped.push(missing);
   }
 }
 
@@ -194,17 +204,20 @@ export async function saveToBank(questionId: string) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
+  // Ditulis utuh, bukan dirangkai dari OPTIONAL_COLUMNS: pengurai tipe Supabase
+  // hanya mengenali daftar kolom yang berupa literal.
   const columns = "type, prompt, options, correct_answer, weight, explanation, stimulus_images";
+  const withOptional = `${columns}, bloom_level, template` as const;
 
   // Level Bloom ikut menyeberang: ia melekat pada soalnya, bukan pada paket
   // tempat soal itu kebetulan dipakai.
   const read = await supabase
     .from("questions")
-    .select(`${columns}, bloom_level`)
+    .select(withOptional)
     .eq("id", questionId)
     .single();
 
-  const question: Record<string, unknown> | null = isMissingBloomColumn(read.error)
+  const question: Record<string, unknown> | null = missingColumn(read.error, OPTIONAL_COLUMNS)
     ? (await supabase.from("questions").select(columns).eq("id", questionId).single()).data
     : read.data;
   if (!question) return;
@@ -213,10 +226,17 @@ export async function saveToBank(questionId: string) {
     .from("question_bank_items")
     .insert({ created_by: user.id, ...question });
 
-  if (isMissingBloomColumn(insertError)) {
-    const { bloom_level: _dropped, ...rest } = question;
-    void _dropped;
-    await supabase.from("question_bank_items").insert({ created_by: user.id, ...rest });
+  // Kalau dua-duanya belum ada, Postgres baru menyebut yang kedua setelah yang
+  // pertama hilang — jadi buangannya menumpuk.
+  const dropped: string[] = [];
+  let error = insertError;
+  for (let attempt = 0; attempt < OPTIONAL_COLUMNS.length; attempt += 1) {
+    const missing = missingColumn(error, OPTIONAL_COLUMNS);
+    if (!missing) break;
+    dropped.push(missing);
+    ({ error } = await supabase
+      .from("question_bank_items")
+      .insert({ created_by: user.id, ...without(question, dropped) }));
   }
 }
 
@@ -246,13 +266,14 @@ export async function addManyFromBank(
 
   const columns =
     "id, type, prompt, options, correct_answer, weight, explanation, stimulus_images";
+  const withOptional = `${columns}, bloom_level, template` as const;
 
   const read = await supabase
     .from("question_bank_items")
-    .select(`${columns}, bloom_level`)
+    .select(withOptional)
     .in("id", bankItemIds);
 
-  const items: Record<string, unknown>[] | null = isMissingBloomColumn(read.error)
+  const items: Record<string, unknown>[] | null = missingColumn(read.error, OPTIONAL_COLUMNS)
     ? (await supabase.from("question_bank_items").select(columns).in("id", bankItemIds)).data
     : read.data;
   if (!items?.length) return;
@@ -266,27 +287,22 @@ export async function addManyFromBank(
       return { quiz_id: quizId, order_index: nextOrderIndex + index, bank_item_id: id, ...content };
     });
 
-  const { error } = await supabase.from("questions").insert(rows);
+  // Sebelum migrasi 082 kolom `bank_item_id` belum ada; `bloom_level` dan
+  // `template` menyusul belakangan. Soalnya tetap masuk — yang hilang hanya
+  // penanda asal atau labelnya. Lebih baik daripada menolak menambahkan soal.
+  const candidates = ["bank_item_id", ...OPTIONAL_COLUMNS];
+  const dropped: string[] = [];
+  let error = null;
+  for (let attempt = 0; attempt <= candidates.length; attempt += 1) {
+    ({ error } = await supabase
+      .from("questions")
+      .insert(rows.map((row) => without({ ...row }, dropped))));
 
-  // Sebelum migrasi 082 kolom `bank_item_id` belum ada, dan `bloom_level` juga
-  // menyusul belakangan. Soalnya tetap masuk — yang hilang hanya penanda asal
-  // atau labelnya. Lebih baik daripada menolak menambahkan soal.
-  const missingColumn =
-    error?.code === "PGRST204"
-      ? ["bank_item_id", "bloom_level"].find((column) => (error.message ?? "").includes(column))
-      : undefined;
-
-  if (missingColumn) {
-    await supabase.from("questions").insert(
-      rows.map((row) => {
-        const trimmed: Record<string, unknown> = { ...row };
-        delete trimmed[missingColumn];
-        return trimmed;
-      }),
-    );
-  } else if (error) {
-    throw new Error(error.message);
+    const missing = missingColumn(error, candidates);
+    if (!missing) break;
+    dropped.push(missing);
   }
+  if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
 }

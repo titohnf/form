@@ -17,6 +17,8 @@ import type {
 } from "@/lib/types";
 import { BRANCH_END } from "@/lib/types";
 import { BLOOM_LEVELS } from "@/lib/bloom";
+import type { QuestionTemplate } from "@/lib/question-template";
+import TemplateEditor from "./TemplateEditor";
 import { questionIssue } from "@/lib/question-validation";
 import MathField from "@/lib/MathField";
 import { createClient } from "@/lib/supabase/client";
@@ -66,6 +68,8 @@ interface Draft {
   branching: Branching;
   /** "" berarti belum ditetapkan; select HTML hanya mengenal string. */
   bloomLevel: string;
+  /** Null untuk soal biasa; lihat `lib/question-template.ts`. */
+  template: QuestionTemplate | null;
 }
 
 function toDraft(question: Question): Draft {
@@ -99,6 +103,7 @@ function toDraft(question: Question): Draft {
     gradingMode: gridKey.grading_mode === "all_or_nothing" ? "all_or_nothing" : "proportional",
     branching: question.branching ?? {},
     bloomLevel: question.bloom_level ? String(question.bloom_level) : "",
+    template: question.template ?? null,
   };
 }
 
@@ -300,6 +305,7 @@ function toPatch(draft: Draft): QuestionPatch {
     branching: Object.keys(branching).length > 0 ? branching : null,
     stimulus_images: splitUrls(draft.stimulusImages),
     bloom_level: draft.bloomLevel ? Number(draft.bloomLevel) : null,
+    template: draft.template,
   };
 }
 
@@ -660,6 +666,18 @@ export default function QuestionEditor({
             }
           />
         </div>
+
+        {/* Hanya untuk pilihan ganda: varian angka menuntut kunci dan pengecoh
+            yang bisa dihitung, dan itu tidak ada artinya untuk esai, isian, atau
+            menjodohkan. */}
+        {(draft.type === "mcq_single" || draft.type === "mcq_multi") && (
+          <TemplateEditor
+            prompt={draft.prompt}
+            options={toPatch(draft).options}
+            value={draft.template}
+            onChange={(template) => patchDraft({ template })}
+          />
+        )}
 
         <label className="flex flex-col gap-1 text-sm">
           Pembahasan{" "}

@@ -101,6 +101,11 @@ export interface Question {
   /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
   bloom_level?: number | null;
   /**
+   * Templat varian angka, null untuk soal biasa. Dipakai saat menyalin soal ke
+   * paket remedial. Lihat `lib/question-template.ts`.
+   */
+  template?: import("./question-template").QuestionTemplate | null;
+  /**
    * Stimulus shown above the prompt, in array order. Empty for questions that
    * are pure text. TKA leans on these heavily — diagrams, geometric figures,
    * charts — which is why they live here rather than being squeezed into the
@@ -124,6 +129,8 @@ export interface QuestionPatch {
   stimulus_images: string[];
   /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
   bloom_level: number | null;
+  /** Templat varian angka, null untuk soal biasa. Lihat `lib/question-template.ts`. */
+  template: import("./question-template").QuestionTemplate | null;
 }
 
 export interface QuizSettings {

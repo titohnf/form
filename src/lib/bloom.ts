@@ -1,3 +1,5 @@
+import { missingColumn } from "./missing-column";
+
 /**
  * Taksonomi Bloom, sumbu kedua tiap soal di samping topiknya.
  *
@@ -37,10 +39,7 @@ export function bloomLabel(level: number | null | undefined): string | null {
 export function isMissingBloomColumn(
   error: { code?: string; message?: string } | null,
 ): boolean {
-  if (!error) return false;
-  if (!(error.message ?? "").includes("bloom_level")) return false;
-  // PGRST204: kolom tak dikenal saat menulis. 42703: saat membaca.
-  return error.code === "PGRST204" || error.code === "42703";
+  return missingColumn(error, ["bloom_level"]) !== null;
 }
 
 /**
