@@ -1,8 +1,34 @@
 import { createClient } from "@/lib/supabase/server";
 import type { CurriculumTopicGroup, QuestionBankItem, Subject } from "@/lib/types";
 import { bySubject, topicLabel } from "@/lib/curriculum";
+import { bloomSpread } from "@/lib/bloom";
 import BankItem from "./BankItem";
 import { NewItemDialog, NewItemInTopic } from "./NewItem";
+
+/**
+ * Sebaran taksonomi satu topik, mis. "C1 2 · C2 3 · C3 3 · C4 2".
+ *
+ * Ditaruh di kepala topik yang masih tertutup karena di situlah pertanyaannya
+ * muncul: sepuluh soal satu topik seharusnya menanjak C1→C4, dan ketimpangan
+ * ("delapan-duanya berhenti di C1") tidak terlihat kalau harus dihitung dengan
+ * membuka satu per satu.
+ */
+function BloomSpread({ items }: { items: QuestionBankItem[] }) {
+  const { filled, unlabelled } = bloomSpread(items.map((item) => item.bloom_level));
+  if (filled.length === 0 && unlabelled === 0) return null;
+
+  return (
+    <span className="ml-1 font-normal text-gray-400">
+      {filled.map((level) => `${level.code} ${level.count}`).join(" · ")}
+      {unlabelled > 0 && (
+        <span className="text-amber-600">
+          {filled.length > 0 ? " · " : ""}
+          {unlabelled} tanpa level
+        </span>
+      )}
+    </span>
+  );
+}
 
 export default async function BankPage({
   searchParams,
@@ -177,6 +203,7 @@ export default async function BankPage({
                 <summary className="cursor-pointer text-sm font-medium text-gray-900">
                   {topicLabel(group)}{" "}
                   <span className="font-normal text-gray-400">({items.length} soal)</span>
+                  <BloomSpread items={items} />
                 </summary>
                 <div className="mt-4 flex flex-col gap-5">
                   {items.map((item) => (

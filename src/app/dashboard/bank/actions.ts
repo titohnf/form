@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingBloomColumn } from "@/lib/bloom";
 import type { QuestionPatch } from "@/lib/types";
 
 /**
@@ -13,10 +14,16 @@ import type { QuestionPatch } from "@/lib/types";
 export async function saveBankItem(itemId: string, patch: QuestionPatch) {
   const supabase = await createClient();
   const { type, prompt, weight, options, correct_answer, explanation, stimulus_images } = patch;
-  await supabase
+  const content = { type, prompt, weight, options, correct_answer, explanation, stimulus_images };
+
+  const { error } = await supabase
     .from("question_bank_items")
-    .update({ type, prompt, weight, options, correct_answer, explanation, stimulus_images })
+    .update({ ...content, bloom_level: patch.bloom_level })
     .eq("id", itemId);
+
+  if (isMissingBloomColumn(error)) {
+    await supabase.from("question_bank_items").update(content).eq("id", itemId);
+  }
 }
 
 /**

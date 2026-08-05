@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { generateShareCode } from "@/lib/share-code";
+import { isMissingBloomColumn } from "@/lib/bloom";
 import type { QuestionPatch, QuestionType, QuizSettings } from "@/lib/types";
 
 export async function updateQuizMeta(quizId: string, formData: FormData) {
@@ -158,7 +159,13 @@ export async function addQuestion(quizId: string, nextOrderIndex: number) {
  */
 export async function saveQuestion(questionId: string, patch: QuestionPatch) {
   const supabase = await createClient();
-  await supabase.from("questions").update(patch).eq("id", questionId);
+  const { error } = await supabase.from("questions").update(patch).eq("id", questionId);
+
+  if (isMissingBloomColumn(error)) {
+    const { bloom_level, ...rest } = patch;
+    void bloom_level;
+    await supabase.from("questions").update(rest).eq("id", questionId);
+  }
 }
 
 export async function deleteQuestion(quizId: string, questionId: string) {
@@ -187,14 +194,30 @@ export async function saveToBank(questionId: string) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const { data: question } = await supabase
+  const columns = "type, prompt, options, correct_answer, weight, explanation, stimulus_images";
+
+  // Level Bloom ikut menyeberang: ia melekat pada soalnya, bukan pada paket
+  // tempat soal itu kebetulan dipakai.
+  const read = await supabase
     .from("questions")
-    .select("type, prompt, options, correct_answer, weight, explanation, stimulus_images")
+    .select(`${columns}, bloom_level`)
     .eq("id", questionId)
     .single();
+
+  const question: Record<string, unknown> | null = isMissingBloomColumn(read.error)
+    ? (await supabase.from("questions").select(columns).eq("id", questionId).single()).data
+    : read.data;
   if (!question) return;
 
-  await supabase.from("question_bank_items").insert({ created_by: user.id, ...question });
+  const { error: insertError } = await supabase
+    .from("question_bank_items")
+    .insert({ created_by: user.id, ...question });
+
+  if (isMissingBloomColumn(insertError)) {
+    const { bloom_level: _dropped, ...rest } = question;
+    void _dropped;
+    await supabase.from("question_bank_items").insert({ created_by: user.id, ...rest });
+  }
 }
 
 /**
@@ -221,13 +244,20 @@ export async function addManyFromBank(
   if (bankItemIds.length === 0) return;
   const supabase = await createClient();
 
-  const { data: items } = await supabase
+  const columns =
+    "id, type, prompt, options, correct_answer, weight, explanation, stimulus_images";
+
+  const read = await supabase
     .from("question_bank_items")
-    .select("id, type, prompt, options, correct_answer, weight, explanation, stimulus_images")
+    .select(`${columns}, bloom_level`)
     .in("id", bankItemIds);
+
+  const items: Record<string, unknown>[] | null = isMissingBloomColumn(read.error)
+    ? (await supabase.from("question_bank_items").select(columns).in("id", bankItemIds)).data
+    : read.data;
   if (!items?.length) return;
 
-  const byId = new Map(items.map((i) => [i.id, i]));
+  const byId = new Map(items.map((i) => [i.id as string, i]));
   const rows = bankItemIds
     .map((id) => byId.get(id))
     .filter((i) => i !== undefined)
@@ -238,15 +268,20 @@ export async function addManyFromBank(
 
   const { error } = await supabase.from("questions").insert(rows);
 
-  // Sebelum migrasi 082 kolom `bank_item_id` belum ada. Soalnya tetap masuk —
-  // yang hilang hanya penanda asalnya, jadi tombol "Simpan ke Bank" masih
-  // muncul di soal-soal itu. Lebih baik daripada menolak menambahkan soal.
-  if (error?.code === "PGRST204" && (error.message ?? "").includes("bank_item_id")) {
+  // Sebelum migrasi 082 kolom `bank_item_id` belum ada, dan `bloom_level` juga
+  // menyusul belakangan. Soalnya tetap masuk — yang hilang hanya penanda asal
+  // atau labelnya. Lebih baik daripada menolak menambahkan soal.
+  const missingColumn =
+    error?.code === "PGRST204"
+      ? ["bank_item_id", "bloom_level"].find((column) => (error.message ?? "").includes(column))
+      : undefined;
+
+  if (missingColumn) {
     await supabase.from("questions").insert(
       rows.map((row) => {
-        const withoutOrigin: Record<string, unknown> = { ...row };
-        delete withoutOrigin.bank_item_id;
-        return withoutOrigin;
+        const trimmed: Record<string, unknown> = { ...row };
+        delete trimmed[missingColumn];
+        return trimmed;
       }),
     );
   } else if (error) {

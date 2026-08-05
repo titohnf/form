@@ -16,6 +16,7 @@ import type {
   StatementGridOptions,
 } from "@/lib/types";
 import { BRANCH_END } from "@/lib/types";
+import { BLOOM_LEVELS } from "@/lib/bloom";
 import { questionIssue } from "@/lib/question-validation";
 import MathField from "@/lib/MathField";
 import { createClient } from "@/lib/supabase/client";
@@ -63,6 +64,8 @@ interface Draft {
   statementLabels: [string, string];
   gradingMode: StatementGridGradingMode;
   branching: Branching;
+  /** "" berarti belum ditetapkan; select HTML hanya mengenal string. */
+  bloomLevel: string;
 }
 
 function toDraft(question: Question): Draft {
@@ -95,6 +98,7 @@ function toDraft(question: Question): Draft {
     statementLabels: grid?.answer_labels ?? DEFAULT_STATEMENT_LABELS,
     gradingMode: gridKey.grading_mode === "all_or_nothing" ? "all_or_nothing" : "proportional",
     branching: question.branching ?? {},
+    bloomLevel: question.bloom_level ? String(question.bloom_level) : "",
   };
 }
 
@@ -295,6 +299,7 @@ function toPatch(draft: Draft): QuestionPatch {
     explanation: draft.explanation.trim() || null,
     branching: Object.keys(branching).length > 0 ? branching : null,
     stimulus_images: splitUrls(draft.stimulusImages),
+    bloom_level: draft.bloomLevel ? Number(draft.bloomLevel) : null,
   };
 }
 
@@ -493,6 +498,24 @@ export default function QuestionEditor({
               {Object.entries(typeLabel).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-1 flex-col gap-1 text-sm">
+            Taksonomi Bloom
+            <select
+              value={draft.bloomLevel}
+              onChange={(e) => patchDraft({ bloomLevel: e.target.value })}
+              className="rounded border border-gray-300 px-3 py-2"
+            >
+              {/* Kosong tetap jadi pilihan yang sah, bukan cuma keadaan awal:
+                  penulis soal belum tentu tahu levelnya saat menulis, dan
+                  memaksanya menebak hanya menghasilkan label yang salah. */}
+              <option value="">Belum ditetapkan</option>
+              {BLOOM_LEVELS.map((level) => (
+                <option key={level.value} value={level.value}>
+                  {level.code} — {level.label}
                 </option>
               ))}
             </select>

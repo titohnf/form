@@ -98,6 +98,8 @@ export interface Question {
    * bank, where saving would silently create a twin. Absent until 082 runs.
    */
   bank_item_id?: string | null;
+  /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
+  bloom_level?: number | null;
   /**
    * Stimulus shown above the prompt, in array order. Empty for questions that
    * are pure text. TKA leans on these heavily — diagrams, geometric figures,
@@ -120,6 +122,8 @@ export interface QuestionPatch {
   explanation: string | null;
   branching: Branching | null;
   stimulus_images: string[];
+  /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
+  bloom_level: number | null;
 }
 
 export interface QuizSettings {
@@ -280,5 +284,7 @@ export interface QuestionBankItem {
   weight: number;
   explanation: string | null;
   stimulus_images: string[];
+  /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
+  bloom_level?: number | null;
   created_at: string;
 }
