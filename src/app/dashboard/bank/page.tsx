@@ -14,10 +14,14 @@ export default async function BankPage({
 
   // The taxonomy lives in Tera: subjects and curriculum topic groups are read
   // here, never written. RLS admits admins only.
+  // Terlama di atas, terbaru di bawah — arah menulis, bukan arah linimasa. Soal
+  // dibuat sepuluh-sepuluh dalam satu topik, dan dengan urutan terbalik setiap
+  // soal baru melompat ke puncak daftar sementara tombol pembuatnya tertinggal
+  // di kaki, jadi tiap soal berikutnya menuntut satu gulungan panjang.
   const { data: items } = await supabase
     .from("question_bank_items")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
   const { data: subjectRows } = await supabase.from("subjects").select("id, name").order("name");
   const { data: groupRows } = await supabase
