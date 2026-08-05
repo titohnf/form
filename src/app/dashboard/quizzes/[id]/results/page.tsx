@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Answer, Attempt, Question, Quiz } from "@/lib/types";
 import { rankAttempts, computeBadges } from "@/lib/gamification";
+import { perQuestionAccuracy } from "@/lib/question-stats";
 import { MathText } from "@/lib/latex";
+import RemedialBuilder from "./RemedialBuilder";
 
 export default async function QuizResultsPage({
   params,
@@ -33,23 +35,9 @@ export default async function QuizResultsPage({
   const typedQuestions = (questions ?? []) as Question[];
   const typedAnswers = (answers ?? []) as Answer[];
   const typedAttempts = (attempts as Attempt[] | null) ?? [];
-  const submittedAttempts = typedAttempts.filter((a) => a.submitted_at);
   const totalWeight = typedQuestions.reduce((sum, q) => sum + Number(q.weight), 0);
 
-  const perQuestionStats = typedQuestions.map((question) => {
-    const relevant = typedAnswers.filter(
-      (a) => a.question_id === question.id && submittedAttempts.some((at) => at.id === a.attempt_id),
-    );
-    const graded = relevant.filter(
-      (a) => !a.needs_manual_grading || a.manual_score !== null,
-    );
-    const correctFraction = graded.reduce((sum, a) => {
-      const score = a.needs_manual_grading ? (a.manual_score ?? 0) : (a.auto_score ?? 0);
-      return sum + score / (question.weight || 1);
-    }, 0);
-    const accuracy = graded.length > 0 ? Math.round((correctFraction / graded.length) * 100) : null;
-    return { question, accuracy, answeredCount: relevant.length };
-  });
+  const perQuestionStats = perQuestionAccuracy(typedQuestions, typedAnswers, typedAttempts);
 
   const ranked = rankAttempts(typedAttempts);
 
@@ -86,6 +74,17 @@ export default async function QuizResultsPage({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Hanya masuk akal kalau sudah ada yang dinilai — sebelum itu tidak ada
+          "sering salah" untuk dijadikan dasar. */}
+      {perQuestionStats.some((s) => s.accuracy !== null) && (
+        <RemedialBuilder
+          quizId={id}
+          accuracies={perQuestionStats
+            .map((s) => s.accuracy)
+            .filter((a): a is number => a !== null)}
+        />
       )}
 
       {ranked.length > 0 && (
