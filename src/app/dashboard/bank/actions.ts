@@ -80,6 +80,66 @@ export async function createBankItem(formData: FormData) {
   redirect(`/dashboard/bank?topic=${groupId}#soal-${created.id}`);
 }
 
+/**
+ * Membuka atau menutup satu soal untuk pelanggan langganan Tera.
+ *
+ * Sakelarnya di sini, bukan di admin Tera, karena inilah tempat soalnya
+ * disusun: keputusan "boleh keluar dari lingkungan bimbel atau tidak" diambil
+ * sambil membaca soalnya, bukan dari daftar judul di aplikasi lain.
+ *
+ * Per SOAL, bukan per topik. Penandaan soal ke topik bersifat many-to-many,
+ * jadi penanda di tingkat topik akan membuat soal privat yang kebetulan
+ * di-tag ke topik terbuka ikut terbuka tanpa ada yang memutuskan — gagal
+ * terbuka. Per soal gagal tertutup.
+ *
+ * Kalau kolomnya belum ada (migrasi 110 di repo Tera belum dijalankan),
+ * fungsinya diam saja alih-alih melempar galat: yang gagal cuma fitur ini,
+ * bukan penyuntingan soal yang sedang dikerjakan orangnya. Pola yang sama
+ * dipakai `saveBankItem` untuk `bloom_level` dan `template`.
+ */
+export async function setBankItemPublic(itemId: string, isPublic: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("question_bank_items")
+    .update({ is_public: isPublic })
+    .eq("id", itemId);
+
+  if (error && !missingColumn(error, ["is_public"])) throw error;
+  revalidatePath("/dashboard/bank");
+}
+
+/**
+ * Membuka atau menutup seluruh soal dalam satu topik sekaligus.
+ *
+ * Menandai satu per satu dari ratusan soal tidak akan pernah dikerjakan siapa
+ * pun, jadi keputusan awalnya hampir selalu diambil per topik. Yang DISIMPAN
+ * tetap per soal — soal baru yang ditandai ke topik yang sudah dibuka tidak
+ * ikut terbuka sendiri, dan itu memang yang diinginkan.
+ *
+ * Satu soal bisa bertanda beberapa topik, jadi menutup topik A ikut menutup
+ * soal yang juga milik topik B. Karena itu kepala tiap topik menampilkan
+ * hitungan terbukanya: akibat di tempat lain harus terlihat, bukan mengejutkan.
+ */
+export async function setTopicPublic(groupId: string, isPublic: boolean) {
+  const supabase = await createClient();
+
+  const { data: tags } = await supabase
+    .from("question_curriculum_tags")
+    .select("question_bank_item_id")
+    .eq("group_id", groupId);
+
+  const ids = (tags ?? []).map((t) => t.question_bank_item_id as string);
+  if (ids.length === 0) return;
+
+  const { error } = await supabase
+    .from("question_bank_items")
+    .update({ is_public: isPublic })
+    .in("id", ids);
+
+  if (error && !missingColumn(error, ["is_public"])) throw error;
+  revalidatePath("/dashboard/bank");
+}
+
 export async function deleteBankItem(itemId: string) {
   const supabase = await createClient();
   await supabase.from("question_bank_items").delete().eq("id", itemId);

@@ -5,6 +5,7 @@ import { bloomSpread } from "@/lib/bloom";
 import BankItem from "./BankItem";
 import { NewItemDialog, NewItemInTopic } from "./NewItem";
 import TopicFilter from "./TopicFilter";
+import TopicPublicToggle from "./TopicPublicToggle";
 
 /**
  * Sebaran taksonomi satu topik, mis. "C1 2 · C2 3 · C3 3 · C4 2".
@@ -27,6 +28,25 @@ function BloomSpread({ items }: { items: QuestionBankItem[] }) {
           {unlabelled} tanpa level
         </span>
       )}
+    </span>
+  );
+}
+
+/**
+ * Berapa soal satu topik yang sudah dibuka untuk pelanggan langganan.
+ *
+ * Bersebelahan dengan sebaran Bloom, dan ada karena alasan yang sama: keadaan
+ * yang cuma bisa diketahui dengan membuka semua kartunya sama saja dengan tidak
+ * diketahui. Topik yang belum dibuka sama sekali tidak menampilkan apa-apa —
+ * itu keadaan bawaan, dan menandainya di setiap baris hanya jadi derau.
+ */
+function PublikSpread({ items }: { items: QuestionBankItem[] }) {
+  const publik = items.filter((item) => item.is_public === true).length;
+  if (publik === 0) return null;
+
+  return (
+    <span className="ml-1 font-normal text-green-700">
+      · {publik === items.length ? "semua" : publik} terbuka untuk langganan
     </span>
   );
 }
@@ -99,6 +119,8 @@ export default async function BankPage({
     untagged.some((u) => u.id === item.id),
   );
 
+  const publikCount = typedItems.filter((item) => item.is_public === true).length;
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -112,6 +134,20 @@ export default async function BankPage({
         tapi hanya kalau topiknya sudah ditandai.
         {untagged.length > 0 && (
           <span className="text-amber-700"> {untagged.length} soal belum ditandai topik.</span>
+        )}
+      </p>
+
+      {/* Bawaannya tertutup, jadi angka ini nol sampai ada yang membukanya satu
+          per satu. Ditaruh di puncak halaman supaya "kenapa pelanggan tidak
+          melihat apa-apa" punya jawaban yang terlihat, bukan yang harus dicari. */}
+      <p className="text-sm text-gray-500">
+        {publikCount === 0 ? (
+          <>Belum ada soal yang dibuka untuk pelanggan langganan Tera.</>
+        ) : (
+          <>
+            <span className="font-medium text-gray-900">{publikCount}</span> dari{" "}
+            {typedItems.length} soal terbuka untuk pelanggan langganan Tera.
+          </>
         )}
       </p>
 
@@ -179,8 +215,14 @@ export default async function BankPage({
                   {topicLabel(group)}{" "}
                   <span className="font-normal text-gray-400">({items.length} soal)</span>
                   <BloomSpread items={items} />
+                  <PublikSpread items={items} />
                 </summary>
                 <div className="mt-4 flex flex-col gap-5">
+                  <TopicPublicToggle
+                    groupId={group.id}
+                    total={items.length}
+                    publik={items.filter((item) => item.is_public === true).length}
+                  />
                   {items.map((item) => (
                     <div key={item.id} id={`soal-${item.id}`} className="scroll-mt-6">
                       <BankItem

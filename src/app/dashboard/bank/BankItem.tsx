@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { CurriculumTopicGroup, Question, QuestionBankItem } from "@/lib/types";
 import { topicLabel } from "@/lib/curriculum";
 import QuestionEditor from "../quizzes/[id]/edit/QuestionEditor";
-import { saveBankItem, deleteBankItem, toggleQuestionTopic } from "./actions";
+import { saveBankItem, deleteBankItem, setBankItemPublic, toggleQuestionTopic } from "./actions";
 
 export interface SubjectTopics {
   subjectId: string;
@@ -16,6 +16,10 @@ export interface SubjectTopics {
  * A bank item wrapped in the same builder the quiz editor uses, plus the topic
  * tags that only exist here. A tag is what makes a question reachable from
  * practice mode, so an untagged item is called out rather than left silent.
+ *
+ * Sakelar "buka untuk langganan" duduk di sebelah tag topik karena keduanya
+ * menjawab pertanyaan yang sama — siapa yang akan melihat soal ini — dan
+ * keduanya hanya berarti setelah soalnya sendiri dibaca.
  */
 export default function BankItem({
   item,
@@ -27,6 +31,7 @@ export default function BankItem({
   initialTaggedIds: string[];
 }) {
   const [tagged, setTagged] = useState<string[]>(initialTaggedIds);
+  const [publik, setPublik] = useState<boolean>(item.is_public === true);
 
   // A bank item has no quiz, order, or branching — the editor treats those as
   // optional, so a minimal Question shape is enough to drive it.
@@ -44,6 +49,14 @@ export default function BankItem({
     stimulus_images: item.stimulus_images ?? [],
   };
 
+  function togglePublik() {
+    const next = !publik;
+    // Optimistis: sakelar yang menunggu perjalanan pulang-pergi server terasa
+    // rusak, dan yang dipertaruhkan cuma satu boolean yang bisa diklik lagi.
+    setPublik(next);
+    setBankItemPublic(item.id, next);
+  }
+
   function toggle(topicId: string) {
     const next = tagged.includes(topicId);
     setTagged(next ? tagged.filter((id) => id !== topicId) : [...tagged, topicId]);
@@ -58,6 +71,27 @@ export default function BankItem({
         save={(patch) => saveBankItem(item.id, patch)}
         onDelete={() => deleteBankItem(item.id)}
       />
+
+      <label
+        className={`flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 text-sm ${
+          publik ? "border-green-200 bg-green-50" : "border-slate-200 bg-slate-50"
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={publik}
+          onChange={togglePublik}
+          className="mt-0.5"
+        />
+        <span>
+          <span className="text-xs font-medium text-gray-700">Buka untuk langganan</span>
+          <span className="mt-0.5 block text-xs text-gray-500">
+            {publik
+              ? "Pelanggan Tera di luar bimbel bisa mengerjakan soal ini."
+              : "Hanya murid bimbel. Pelanggan langganan tidak akan pernah mendapatnya."}
+          </span>
+        </span>
+      </label>
 
       <details className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
         <summary className="cursor-pointer text-xs text-gray-500">

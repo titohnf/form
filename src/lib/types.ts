@@ -293,5 +293,16 @@ export interface QuestionBankItem {
   stimulus_images: string[];
   /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
   bloom_level?: number | null;
+  /**
+   * Boleh dikerjakan pelanggan langganan Tera — orang di luar bimbel yang
+   * membayar untuk memakai SORA. Bawaannya false: bank soal ini disusun untuk
+   * bimbel, sebagian terikat sesi dan kelas tertentu, jadi yang keluar dari
+   * lingkungan itu harus diputuskan satu per satu.
+   *
+   * Opsional di tipe ini karena kolomnya datang dari migrasi 110 di repo Tera;
+   * lihat `lib/missing-column.ts` untuk kenapa kolom yang menyusul tidak boleh
+   * menggagalkan halaman.
+   */
+  is_public?: boolean;
   created_at: string;
 }
