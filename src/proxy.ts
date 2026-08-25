@@ -6,13 +6,15 @@ export async function proxy(request: NextRequest) {
 }
 
 /**
- * `/practice` dan `/` ikut dilewatkan bukan untuk dijaga — `updateSession` hanya
- * memulangkan pengunjung di jalur /dashboard — melainkan supaya token sesi
- * keluarga ikut disegarkan di sana. Tanpa ini sesi keluarga mati diam-diam saat
- * token kedaluwarsa, dan yang muncul justru formulir kode di `/practice` atau
- * etalase di `/`: seolah akunnya tidak pernah sah. Pemegang kode tidak punya
- * sesi Supabase sama sekali, jadi baginya jalur ini tidak berubah apa pun.
+ * `/` ikut dilewatkan bukan untuk dijaga — `updateSession` hanya memulangkan
+ * pengunjung di jalur /dashboard — melainkan supaya tokennya disegarkan sebelum
+ * root memutuskan pintu mana yang benar. Tanpa itu, sesi yang tinggal
+ * kedaluwarsa terbaca anonim dan admin dilempar ke formulir masuk yang tidak ia
+ * butuhkan.
+ *
+ * `/practice` dulu ada di sini dengan alasan yang sama untuk sesi keluarga.
+ * Rutenya sudah tidak ada.
  */
 export const config = {
-  matcher: ["/", "/dashboard/:path*", "/practice/:path*"],
+  matcher: ["/", "/dashboard/:path*"],
 };

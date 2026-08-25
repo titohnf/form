@@ -1,4 +1,3 @@
-import Link from "next/link";
 import SubmitButton from "@/lib/SubmitButton";
 import { login } from "./actions";
 
@@ -11,7 +10,7 @@ const errorMessage: Record<string, string> = {
     "Bank soal hanya bisa diakses admin. Sebagai tutor kamu tetap bisa menyusun soal di paket soal sesimu sendiri.",
   "staff-only": "Akun ini tidak punya akses ke Sora. Hubungi admin Tera kalau seharusnya punya.",
   "tanpa-beranda":
-    "Akun ini tidak punya halaman di Sora. Kalau kamu berlangganan, latihan soalnya ada di aplikasi Tera.",
+    "Sora adalah alat penyusun soal untuk admin. Latihan soalnya ada di aplikasi Tera — masuk di sana dengan akun yang sama.",
 };
 
 export default async function LoginPage({
@@ -58,18 +57,6 @@ export default async function LoginPage({
           Masuk
         </SubmitButton>
       </form>
-
-      {/* Murid pemegang kode tidak punya akun, jadi halaman ini adalah jalan buntu
-          baginya — padahal ia mendarat di sini setiap kali membuka alamat Sora.
-          Satu baris ini yang meneruskannya. Ikut dihapus saat `/practice` pensiun
-          dan latihan sepenuhnya pindah ke Tera. */}
-      <p className="border-t border-gray-100 pt-6 text-sm text-gray-500">
-        Murid dengan kode latihan{" "}
-        <Link href="/practice" className="font-medium text-blue-600 hover:underline">
-          mulai di sini
-        </Link>
-        .
-      </p>
     </div>
   );
 }
