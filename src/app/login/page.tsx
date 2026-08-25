@@ -1,11 +1,17 @@
+import Link from "next/link";
 import SubmitButton from "@/lib/SubmitButton";
 import { login } from "./actions";
 
-/** Kode dari proxy (lihat dashboardDenial) dijadikan kalimat yang bisa dibaca. */
+/**
+ * Kode dari proxy (lihat dashboardDenial) dan dari root dijadikan kalimat yang
+ * bisa dibaca.
+ */
 const errorMessage: Record<string, string> = {
   "bank-admin-only":
     "Bank soal hanya bisa diakses admin. Sebagai tutor kamu tetap bisa menyusun soal di paket soal sesimu sendiri.",
   "staff-only": "Akun ini tidak punya akses ke Sora. Hubungi admin Tera kalau seharusnya punya.",
+  "tanpa-beranda":
+    "Akun ini tidak punya halaman di Sora. Kalau kamu berlangganan, latihan soalnya ada di aplikasi Tera.",
 };
 
 export default async function LoginPage({
@@ -59,6 +65,18 @@ export default async function LoginPage({
       <p className="text-sm text-gray-500">
         Akun dikelola di Tera — masuk dengan akun admin yang sama. Kalau kamu tutor, penyusunan
         soal memang bukan aksesmu.
+      </p>
+
+      {/* Murid pemegang kode tidak punya akun, jadi halaman ini adalah jalan buntu
+          baginya — padahal ia mendarat di sini setiap kali membuka alamat Sora.
+          Satu baris ini yang meneruskannya. Ikut dihapus saat `/practice` pensiun
+          dan latihan sepenuhnya pindah ke Tera. */}
+      <p className="border-t border-gray-100 pt-6 text-sm text-gray-500">
+        Murid dengan kode latihan{" "}
+        <Link href="/practice" className="font-medium text-blue-600 hover:underline">
+          mulai di sini
+        </Link>
+        .
       </p>
     </div>
   );

@@ -1,18 +1,12 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 
 /**
  * Ke mana pemilik sesi dipulangkan, per role.
  *
- * Halaman ini adalah etalase: ia menjelaskan Sora kepada orang yang belum
- * mengenalnya. Bagi yang sudah masuk — keluarga yang mengetuk kartu SORA di
- * beranda Tera, admin yang mengetik alamatnya — ia cuma satu ketukan tambahan
- * yang menanyakan hal yang jawabannya sudah diketahui.
- *
- * Role yang tidak terdaftar di sini tetap melihat etalasenya, dan itu memang
- * yang benar: `mandiri` berlatih di repo Tera (`/belajar`), bukan di sini, jadi
- * tidak ada halaman Sora yang pantas jadi berandanya.
+ * Role yang tidak terdaftar di sini tidak punya halaman di Sora — `mandiri`
+ * berlatih di `/belajar` milik repo Tera — jadi ia dipulangkan ke /login dengan
+ * kalimat yang menjelaskan itu, bukan dibiarkan menebak.
  */
 const BERANDA: Record<string, string> = {
   admin: "/dashboard",
@@ -21,35 +15,26 @@ const BERANDA: Record<string, string> = {
   student: "/practice",
 };
 
+/**
+ * Root Sora tidak punya isi sendiri; ia cuma menunjuk pintu yang benar.
+ *
+ * Dulu di sini ada etalase — judul, satu paragraf penjelasan, dua tombol. Itu
+ * halaman untuk orang yang belum mengenal Sora, dan orang seperti itu tidak
+ * pernah datang: yang mengetik alamat ini adalah admin yang mau masuk, dan yang
+ * mengetuk kartu SORA di beranda Tera adalah keluarga yang sudah masuk. Bagi
+ * keduanya, etalase itu satu ketukan yang menanyakan hal yang jawabannya sudah
+ * diketahui.
+ *
+ * Murid pemegang kode tidak punya sesi dan karenanya ikut mendarat di /login —
+ * jalurnya diteruskan oleh satu tautan di sana, sampai `/practice` pensiun dan
+ * latihan sepenuhnya pindah ke Tera.
+ */
 export default async function Home() {
   const { role } = await getCurrentUser();
-  const beranda = role ? BERANDA[role] : undefined;
 
-  if (beranda) {
-    redirect(beranda);
+  if (!role) {
+    redirect("/login");
   }
 
-  return (
-    <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-6 px-4 text-center">
-      <h1 className="text-4xl font-semibold">Sora</h1>
-      <p className="max-w-md text-lg text-gray-500">
-        Buat paket soal dalam hitungan menit, bagikan lewat link atau kode, dan nilai jawaban murid
-        secara otomatis.
-      </p>
-      <div className="flex gap-4">
-        <Link
-          href="/practice"
-          className="rounded bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800"
-        >
-          Latihan Mandiri
-        </Link>
-        <Link
-          href="/login"
-          className="rounded border border-gray-300 px-5 py-3 text-sm font-medium hover:bg-gray-50"
-        >
-          Masuk sebagai Admin
-        </Link>
-      </div>
-    </div>
-  );
+  redirect(BERANDA[role] ?? "/login?error=tanpa-beranda");
 }
