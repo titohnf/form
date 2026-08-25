@@ -1,6 +1,34 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/current-user";
 
-export default function Home() {
+/**
+ * Ke mana pemilik sesi dipulangkan, per role.
+ *
+ * Halaman ini adalah etalase: ia menjelaskan Sora kepada orang yang belum
+ * mengenalnya. Bagi yang sudah masuk — keluarga yang mengetuk kartu SORA di
+ * beranda Tera, admin yang mengetik alamatnya — ia cuma satu ketukan tambahan
+ * yang menanyakan hal yang jawabannya sudah diketahui.
+ *
+ * Role yang tidak terdaftar di sini tetap melihat etalasenya, dan itu memang
+ * yang benar: `mandiri` berlatih di repo Tera (`/belajar`), bukan di sini, jadi
+ * tidak ada halaman Sora yang pantas jadi berandanya.
+ */
+const BERANDA: Record<string, string> = {
+  admin: "/dashboard",
+  tutor: "/dashboard",
+  parent: "/practice",
+  student: "/practice",
+};
+
+export default async function Home() {
+  const { role } = await getCurrentUser();
+  const beranda = role ? BERANDA[role] : undefined;
+
+  if (beranda) {
+    redirect(beranda);
+  }
+
   return (
     <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-6 px-4 text-center">
       <h1 className="text-4xl font-semibold">Sora</h1>
