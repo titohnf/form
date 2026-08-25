@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { berandaUntuk } from "@/lib/beranda";
 
 export async function login(formData: FormData) {
   const email = String(formData.get("email"));
@@ -14,15 +15,16 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  // Akun keluarga sah di Sora, tapi bukan penyusun soal: sebelum ini ia dikirim
-  // ke /dashboard lalu dipulangkan proxy dengan "staff-only", seolah akunnya
-  // salah. Yang dia cari ada di latihan mandiri — di sana anaknya bisa dipilih
-  // tanpa kode.
+  // Tidak semua yang boleh masuk adalah penyusun soal. Keluarga dan murid dicari
+  // di latihan mandiri, bukan di /dashboard — mengirim mereka ke sana berarti
+  // dipulangkan proxy dengan "staff-only", seolah akunnya salah. Petanya sama
+  // dengan yang dipakai root, supaya mengetik alamat Sora dan menekan "Masuk"
+  // berujung di tempat yang sama.
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", data.user!.id)
     .single();
 
-  redirect(profile?.role === "parent" ? "/practice" : "/dashboard");
+  redirect(berandaUntuk(profile?.role));
 }

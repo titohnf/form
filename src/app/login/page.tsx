@@ -23,10 +23,7 @@ export default async function LoginPage({
 
   return (
     <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Masuk ke Sora</h1>
-        <p className="text-sm text-gray-500">Untuk tutor yang membuat & mengelola paket soal.</p>
-      </div>
+      <h1 className="text-2xl font-semibold">Masuk ke Sora</h1>
 
       {message && <p className="rounded bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
       {error && (
@@ -61,11 +58,6 @@ export default async function LoginPage({
           Masuk
         </SubmitButton>
       </form>
-
-      <p className="text-sm text-gray-500">
-        Akun dikelola di Tera — masuk dengan akun admin yang sama. Kalau kamu tutor, penyusunan
-        soal memang bukan aksesmu.
-      </p>
 
       {/* Murid pemegang kode tidak punya akun, jadi halaman ini adalah jalan buntu
           baginya — padahal ia mendarat di sini setiap kali membuka alamat Sora.
