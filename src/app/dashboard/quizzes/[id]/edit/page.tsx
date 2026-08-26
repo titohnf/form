@@ -8,8 +8,6 @@ import type {
   Quiz,
   Class,
   QuestionBankItem,
-  SessionOption,
-  Assessment,
   QuizKind,
 } from "@/lib/types";
 import { QUIZ_KIND_LABEL } from "@/lib/types";
@@ -17,7 +15,6 @@ import type { CurriculumTopicGroup, Subject } from "@/lib/types";
 import { bySubject, topicLabel } from "@/lib/curriculum";
 import { getCurrentUser } from "@/lib/current-user";
 import { findQuizIssues } from "@/lib/question-validation";
-import { sessionWindowStart } from "@/lib/session-window";
 import { publishQuiz, deleteQuiz, setQuizKind } from "../../../actions";
 import {
   updateQuizMeta,
@@ -25,8 +22,6 @@ import {
   updateQuizSettings,
   assignClass,
   addManyFromBank,
-  assignToSession,
-  unassignFromSession,
 } from "./actions";
 import QuestionList from "./QuestionList";
 import QuestionBankPicker, { type BankTopicGroup } from "./QuestionBankPicker";
@@ -34,10 +29,13 @@ import AiGenerator from "./AiGenerator";
 
 export default async function EditQuizPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ dari?: string }>;
 }) {
   const { id } = await params;
+  const { dari } = await searchParams;
   const supabase = await createClient();
 
   const { data: quiz } = await supabase.from("quizzes").select("*").eq("id", id).single();
@@ -68,51 +66,11 @@ export default async function EditQuizPage({
           supabase.from("subjects").select("id, name").order("name"),
         ]);
 
-  // Penugasan ke sesi adalah pekerjaan admin: tutor menyusun paket soal untuk
-  // sesinya sendiri lewat dashboard, dan paket itu sudah lahir dengan
-  // penugasannya. Query-nya dilewati untuk tutor supaya tidak ada daftar sesi
-  // orang lain yang dimuat percuma.
-  const since = sessionWindowStart();
-  const { data: sessionRows } = isTutor
-    ? { data: null }
-    : await supabase
-        .from("sessions")
-        .select("id, scheduled_at, topic, classes(name)")
-        .gte("scheduled_at", since)
-        .order("scheduled_at", { ascending: true })
-        .limit(100);
-
-  const { data: assessmentRows } = isTutor
-    ? { data: null }
-    : await supabase
-        .from("assessments")
-        .select("id, session_id, quiz_id, title, share_code, created_at, sessions(scheduled_at, topic, classes(name))")
-        .eq("quiz_id", id)
-        .order("created_at", { ascending: true });
-
-  const assignments = (assessmentRows ?? []) as unknown as (Assessment & {
-    sessions: { scheduled_at: string; topic: string | null; classes: { name: string } | null } | null;
-  })[];
-
-  // Penugasan yang sudah punya nilai tidak boleh ditarik — hapusnya cascade ke
-  // `assessment_results`. Dihitung sekali di sini, bukan per baris.
-  const { data: resultRows } = assignments.length
-    ? await supabase
-        .from("assessment_results")
-        .select("assessment_id")
-        .in(
-          "assessment_id",
-          assignments.map((a) => a.id),
-        )
-    : { data: null };
-  const gradedAssignmentIds = new Set(
-    ((resultRows ?? []) as { assessment_id: string }[]).map((r) => r.assessment_id),
-  );
-
-  const assignedSessionIds = new Set(assignments.map((a) => a.session_id));
-  const sessions = ((sessionRows ?? []) as unknown as SessionOption[]).filter(
-    (s) => !assignedSessionIds.has(s.id),
-  );
+  // Penugasan ke sesi tidak lagi diurus dari sini. Selama ia hanya bisa
+  // dimulai dari paket ("paket ini dipakai di sesi mana"), sesi yang tidak
+  // pernah dibuka siapa pun tidak muncul di layar mana pun — dan itulah cara
+  // sesi terlewat. Sekarang satu-satunya tempatnya adalah daftar sesi di
+  // /dashboard/sesi, yang bertanya dari arah sebaliknya.
 
   const typedQuiz = quiz as Quiz;
   const typedQuestions = (questions ?? []) as Question[];
@@ -143,18 +101,22 @@ export default async function EditQuizPage({
   const issues = findQuizIssues(typedQuestions);
   const canPublish = typedQuestions.length > 0 && issues.length === 0;
 
-  const kind: QuizKind = typedQuiz.kind ?? "asesmen";
-  const kindHref =
-    kind === "asesmen" ? "/dashboard" : kind === "remedial" ? "/dashboard/remedial" : "/dashboard/tryout";
+  // Kembali ke menu ASAL, bukan ke menu yang cocok dengan jenisnya: satu paket
+  // asesmen dijangkau dari dua tempat — daftar sesi dan gudang paket — dan
+  // memulangkan orang ke tempat yang bukan tempatnya tadi sama membingungkannya
+  // dengan tidak ada tombol kembali. Tanpa `?dari=` (mis. tautan langsung)
+  // gudang jadi tebakan yang paling aman: semua paket ada di sana.
+  const dariAsesmen = dari === "asesmen";
+  const backHref = dariAsesmen ? "/dashboard/sesi" : "/dashboard/paket";
+  const backLabel = dariAsesmen ? "Asesmen" : "Paket Soal";
 
   const boundUpdateMeta = updateQuizMeta.bind(null, id);
   const boundAddQuestion = addQuestion.bind(null, id, nextOrderIndex);
   const boundPublish = publishQuiz.bind(null, id);
-  const boundDelete = deleteQuiz.bind(null, id, kindHref);
+  const boundDelete = deleteQuiz.bind(null, id, backHref);
   const boundUpdateSettings = updateQuizSettings.bind(null, id);
   const boundAssignClass = assignClass.bind(null, id);
   const boundSetKind = setQuizKind.bind(null, id);
-  const boundAssignToSession = assignToSession.bind(null, id);
   const boundAddFromBank = addManyFromBank.bind(null, id, nextOrderIndex);
 
   const shareUrl = typedQuiz.share_code ? `/q/${typedQuiz.share_code}` : null;
@@ -167,9 +129,8 @@ export default async function EditQuizPage({
 
   return (
     <div className="space-y-5">
-      {/* Kembali ke menu asal paket ini, bukan selalu ke Asesmen. */}
-      <Link href={kindHref} className="text-sm text-gray-500 underline">
-        ← Kembali ke {QUIZ_KIND_LABEL[kind]}
+      <Link href={backHref} className="text-sm text-gray-500 underline">
+        ← Kembali ke {backLabel}
       </Link>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -249,96 +210,6 @@ export default async function EditQuizPage({
           </form>
         </div>
       </div>
-
-      {!isTutor && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="text-sm font-medium">Penugasan ke Sesi ({assignments.length})</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Satu paket soal bisa ditugaskan ke beberapa sesi. Tiap penugasan punya kode sendiri,
-            memakai daftar murid kelas sesi itu, dan nilainya masuk ke sesi itu di Tera.
-          </p>
-
-          {assignments.length > 0 && (
-            <ul className="mt-4 flex flex-col gap-2">
-              {assignments.map((a) => {
-                const graded = gradedAssignmentIds.has(a.id);
-                return (
-                  <li
-                    key={a.id}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm"
-                  >
-                    <span className="min-w-0 flex-1 truncate font-medium">
-                      {a.sessions ? sessionLabel(a.sessions) : "Sesi tidak ditemukan"}
-                    </span>
-                    {a.share_code ? (
-                      <Link href={`/q/${a.share_code}`} target="_blank" className="underline">
-                        /q/{a.share_code} ↗
-                      </Link>
-                    ) : (
-                      <span className="text-gray-500">Tanpa kode</span>
-                    )}
-                    <form action={unassignFromSession.bind(null, id, a.id)} className="shrink-0">
-                      <button
-                        type="submit"
-                        disabled={graded}
-                        title={
-                          graded
-                            ? "Sudah ada nilai murid di sesi ini — penugasannya tidak bisa ditarik"
-                            : undefined
-                        }
-                        className="text-xs text-red-500 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 disabled:no-underline"
-                      >
-                        {graded ? "Sudah dinilai" : "Tarik"}
-                      </button>
-                    </form>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {sessions.length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">
-              Tidak ada sesi lain yang bisa ditugaskan dalam rentang dua minggu terakhir sampai ke
-              depan. Jadwalkan sesinya dulu di Tera.
-            </p>
-          ) : (
-            <form action={boundAssignToSession} className="mt-4 flex flex-wrap items-center gap-2">
-              {/* Label sesi bisa panjang (jam — kelas — topik), dan select
-                  melebar mengikuti opsi terpanjangnya sampai keluar dari kartu
-                  kalau lebarnya tidak dikunci. */}
-              <select
-                name="session_id"
-                required
-                defaultValue=""
-                className="w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm sm:flex-1"
-              >
-                <option value="" disabled>
-                  Pilih sesi kelas…
-                </option>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {sessionLabel(s)}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-              >
-                Tugaskan ke Sesi
-              </button>
-            </form>
-          )}
-
-          {assignments.length > 0 && typedQuiz.status !== "published" && (
-            <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-              Paket soal ini belum diterbitkan, jadi kodenya belum bisa dibuka murid. Terbitkan
-              dulu di atas.
-            </p>
-          )}
-        </div>
-      )}
 
       <details className="rounded-2xl border border-slate-200 bg-white p-5">
         <summary className="cursor-pointer text-sm font-medium">Pengaturan Paket Soal</summary>
@@ -439,7 +310,7 @@ export default async function EditQuizPage({
 
         <form action={boundSetKind} className="mt-4 flex items-end gap-2 border-t border-gray-100 pt-4">
           <label className="flex flex-col gap-1 text-sm">
-            Kategori (menentukan menu tempatnya muncul)
+            Jenis paket (jadi label dan saringan di Paket Soal)
             <select
               name="kind"
               defaultValue={typedQuiz.kind ?? "asesmen"}
@@ -517,7 +388,7 @@ export default async function EditQuizPage({
         </form>
         {isTutor ? (
           <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-gray-500">
-            Latihan Soal bersama disusun admin. Soal yang kamu tulis di sini menempel pada paket soal
+            Bank Soal bersama disusun admin. Soal yang kamu tulis di sini menempel pada paket soal
             sesi ini saja.
           </p>
         ) : (
@@ -533,25 +404,6 @@ export default async function EditQuizPage({
       </div>
     </div>
   );
-}
-
-/**
- * Label satu sesi di pemilih dan di daftar penugasan. Jamnya ikut ditampilkan
- * karena satu kelas bisa punya beberapa sesi di hari yang sama.
- */
-function sessionLabel(s: {
-  scheduled_at: string;
-  topic: string | null;
-  classes: { name: string } | null;
-}): string {
-  const when = new Date(s.scheduled_at).toLocaleString("id-ID", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return [when, s.classes?.name, s.topic].filter(Boolean).join(" — ");
 }
 
 function toLocalInput(iso: string | null | undefined): string {

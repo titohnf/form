@@ -14,7 +14,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const name = fullName || email || "Pengguna";
 
   return (
-    <div className="flex h-screen bg-slate-100">
+    // `overflow-hidden`: yang boleh menggulung cuma `main` di dalamnya. Tanpa
+    // itu, apa pun yang sesekali melebihi tinggi layar membuat JENDELA ikut
+    // bisa digulung — dan bar kepala halaman yang `fixed` mengukur dari jendela,
+    // jadi ia terlihat melayang meninggalkan bar atas begitu jendelanya
+    // bergeser satu piksel pun.
+    <div className="flex h-screen overflow-hidden bg-slate-100">
       <DashboardSidebar isTutor={isTutor} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center justify-end gap-3 border-b border-gray-100 bg-white px-6 shadow-sm">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { MathText } from "./latex";
 
 /**
@@ -49,6 +49,19 @@ export default function MathField({
   const [showToolbar, setShowToolbar] = useState(false);
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
 
+  // Kotaknya setinggi isinya. Soal panjang — apalagi yang punya beberapa
+  // paragraf — sebelumnya harus dibaca lewat jendela dua baris sambil
+  // menggulung, jadi memeriksa kalimat yang baru ditulis berarti kehilangan
+  // kalimat sebelumnya dari layar. `rows` tetap jadi tinggi minimumnya: dengan
+  // height:auto textarea kembali diukur oleh `rows`, dan scrollHeight tidak
+  // pernah lebih kecil dari itu.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !rows) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value, rows]);
+
   function insert(snippet: string) {
     const el = ref.current;
     const caretSlot = snippet.indexOf("#");
@@ -74,7 +87,12 @@ export default function MathField({
     onChange(next);
   }
 
-  const fieldClass = "w-full rounded border border-gray-300 px-3 py-2";
+  // 16px, bukan mengikuti wadahnya: isi soal — pertanyaan, pilihan jawaban,
+  // pernyataan — dibaca murid sebesar itu, dan menulisnya di kotak 14px membuat
+  // panjang baris di editor berbohong tentang panjangnya nanti. Kebetulan yang
+  // membantu: Safari iOS berhenti memperbesar halaman sendiri saat kolom di
+  // bawah 16px difokus.
+  const fieldClass = "w-full rounded border border-gray-300 px-3 py-2 text-base";
   const hasMath = value.includes("$");
 
   return (
@@ -88,7 +106,9 @@ export default function MathField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setShowToolbar(true)}
-          className={fieldClass}
+          // `resize-none`: tingginya sudah mengikuti isi, dan pegangan resize
+          // hanya menawarkan tinggi yang akan ditimpa ketikan berikutnya.
+          className={`${fieldClass} resize-none overflow-hidden`}
         />
       ) : (
         <input
@@ -118,14 +138,12 @@ export default function MathField({
               {s.label}
             </button>
           ))}
-          <span className="ml-1 text-xs text-gray-400">
-            tulis rumus di antara tanda $
-          </span>
+          <span className="ml-1 text-xs text-gray-400">tulis rumus di antara tanda $</span>
         </div>
       )}
 
       {hasMath && (
-        <div className="rounded border border-dashed border-gray-200 bg-white px-3 py-2 text-sm">
+        <div className="rounded border border-dashed border-gray-200 bg-white px-3 py-2 text-base">
           <span className="text-xs text-gray-400">Pratinjau:</span>
           {/* Multi-line fields hold one choice/answer per line, so preview them line by line. */}
           {value.split("\n").map((line, i) => (

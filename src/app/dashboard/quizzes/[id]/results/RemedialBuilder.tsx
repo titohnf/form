@@ -41,8 +41,7 @@ export default function RemedialBuilder({
       <h2 className="text-sm font-medium text-gray-500">Buat Remedial</h2>
       <p className="mt-1 text-sm text-gray-500">
         Soal yang ketepatannya di bawah ambang disalin ke paket Remedial baru, menempel ke sesi dan
-        kelas yang sama. Soal berparameter lahir dengan angka baru; sisanya disalin apa adanya
-        dengan urutan soal dan pilihan diacak.
+        kelas yang sama, dengan urutan soal dan pilihan diacak.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">

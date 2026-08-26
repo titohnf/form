@@ -61,7 +61,7 @@ export async function createQuiz(formData?: FormData) {
     throw new Error(error?.message ?? "Gagal membuat paket soal");
   }
 
-  redirect(`/dashboard/quizzes/${data.id}/edit`);
+  redirect(`/dashboard/quizzes/${data.id}/edit?dari=paket`);
 }
 
 /** Membaca `kind` dari FormData; apa pun yang tidak dikenal jatuh ke asesmen. */
@@ -193,14 +193,13 @@ export async function duplicateQuiz(quizId: string) {
     );
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/paket");
 }
 
 /**
  * `redirectTo` dioper dari halaman edit (yang harus pindah ke suatu tempat
- * setelah paketnya hilang). Dari daftar, tidak ada tujuan yang perlu dituju:
- * memaksa redirect ke `/dashboard` justru memantulkan admin dari menu Remedial
- * atau Try Out ke Asesmen tanpa sebab.
+ * setelah paketnya hilang). Dari daftar, tidak ada tujuan yang perlu dituju —
+ * orangnya sudah berada di halaman yang benar.
  */
 export async function deleteQuiz(quizId: string, redirectTo?: string) {
   const supabase = await createClient();

@@ -104,7 +104,8 @@ export default async function PublicQuizPage({
   const { data: questions } = await supabase
     .from("questions")
     // Tanpa correct_answer dan explanation: halaman ini dibaca murid. Gambar
-    // stimulus ikut karena tanpanya soal bergambar tidak bisa dikerjakan.
+    // `stimulus_images` ikut hanya karena tipe Question masih memuatnya;
+    // gambar sekarang hidup di dalam `prompt`. Lihat `lib/isi-soal.tsx`.
     .select("id, quiz_id, type, prompt, options, weight, order_index, branching, stimulus_images")
     .eq("quiz_id", typedQuiz.id)
     .order("order_index", { ascending: true });

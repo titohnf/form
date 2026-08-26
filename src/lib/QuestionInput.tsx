@@ -10,7 +10,7 @@ import type {
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { MathText } from "@/lib/latex";
-import Stimulus from "@/lib/Stimulus";
+import IsiSoal from "@/lib/isi-soal";
 
 /**
  * Renders the answer widget for any question type. Shared by the quiz page and
@@ -33,24 +33,25 @@ export default function QuestionInput({
   return (
     <fieldset className="rounded border border-gray-200 p-4">
       <legend className="px-1 text-sm font-medium">{label}</legend>
-      <Stimulus images={question.stimulus_images} />
       {question.type !== "fill_blank" && (
-        <p className="text-sm font-medium">
-          <MathText text={question.prompt} />
-        </p>
+        <IsiSoal text={question.prompt} className="text-sm font-medium" />
       )}
 
       {question.type === "mcq_single" && (
         <div className="mt-2 flex flex-col gap-2">
           {(question.options as McqOptions | null)?.choices?.map((choice) => (
-            <label key={choice} className="flex items-center gap-2 text-sm">
+            // `items-start`: pilihan boleh memuat gambar atau tabel, dan
+            // lingkaran yang dipusatkan terhadap gambar setinggi 200px akan
+            // melayang jauh dari baris pertamanya.
+            <label key={choice} className="flex items-start gap-2 text-sm">
               <input
                 type="radio"
                 name={`q_${question.id}`}
                 checked={value === choice}
                 onChange={() => onChange(choice)}
+                className="mt-1"
               />
-              <MathText text={choice} />
+              <IsiSoal text={choice} />
             </label>
           ))}
         </div>
@@ -61,7 +62,7 @@ export default function QuestionInput({
           {(question.options as McqOptions | null)?.choices?.map((choice) => {
             const selected = Array.isArray(value) ? (value as string[]) : [];
             return (
-              <label key={choice} className="flex items-center gap-2 text-sm">
+              <label key={choice} className="flex items-start gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={selected.includes(choice)}
@@ -72,8 +73,9 @@ export default function QuestionInput({
                         : selected.filter((c) => c !== choice),
                     )
                   }
+                  className="mt-1"
                 />
-                <MathText text={choice} />
+                <IsiSoal text={choice} />
               </label>
             );
           })}
@@ -152,6 +154,7 @@ function StatementGridInput({
   const options = question.options as StatementGridOptions | null;
   const statements = options?.statements ?? [];
   const [trueLabel, falseLabel] = options?.answer_labels ?? ["Benar", "Salah"];
+  const judulBaris = options?.statement_label?.trim();
   const answers = Array.isArray(value) ? (value as (boolean | null)[]) : [];
 
   function setAt(i: number, answer: boolean) {
@@ -162,6 +165,13 @@ function StatementGridInput({
 
   return (
     <div className="mt-2 flex flex-col divide-y divide-gray-100">
+      {/* Di sini grid-nya berupa daftar, bukan tabel — jadi judul kolom
+          pernyataan tampil sebagai judul daftarnya. */}
+      {judulBaris && (
+        <p className="pb-1 text-xs font-medium text-gray-500">
+          <MathText text={judulBaris} />
+        </p>
+      )}
       {statements.map((statement, i) => (
         <div key={i} className="flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:gap-4">
           <span className="flex-1 text-sm">

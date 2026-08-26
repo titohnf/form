@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { generateShareCode } from "@/lib/share-code";
 import { missingColumn, without } from "@/lib/missing-column";
 import type { QuestionPatch, QuestionType, QuizSettings } from "@/lib/types";
 
@@ -54,83 +53,10 @@ export async function assignClass(quizId: string, formData: FormData) {
   revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
 }
 
-/**
- * Menugaskan satu paket soal ke satu sesi kelas — inilah "asesmen" dari sisi
- * Tera, dan satu-satunya jalur admin untuk itu.
- *
- * Penugasan, bukan kepemilikan (lihat migrasi 074): `quizzes.session_id`
- * sengaja dibiarkan null supaya paket soal induk buatan admin tidak bisa
- * disunting tutor, sementara satu paket boleh dipakai di banyak sesi. Share
- * code hidup di baris penugasan, bukan di paketnya, karena pintu masuk murid
- * adalah "paket ini di sesi itu" — itulah yang menentukan roster dan ke sesi
- * mana nilainya mengalir.
- */
-export async function assignToSession(quizId: string, formData: FormData) {
-  const supabase = await createClient();
-  const sessionId = String(formData.get("session_id") ?? "").trim();
-  if (!sessionId) return;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const { data: quiz } = await supabase
-    .from("quizzes")
-    .select("title")
-    .eq("id", quizId)
-    .single();
-  if (!quiz) return;
-
-  // Tidak ada unique index (quiz_id, session_id) di DB — dua penugasan ke sesi
-  // yang sama hanya akan memberi dua share code untuk hal yang sama.
-  const { data: existing } = await supabase
-    .from("assessments")
-    .select("id")
-    .eq("quiz_id", quizId)
-    .eq("session_id", sessionId)
-    .maybeSingle();
-  if (existing) {
-    revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
-    return;
-  }
-
-  // Share code-nya unik lintas penugasan, jadi tabrakan diulang beberapa kali —
-  // pola yang sama dengan publishQuiz.
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const { error } = await supabase.from("assessments").insert({
-      session_id: sessionId,
-      created_by: user.id,
-      quiz_id: quizId,
-      title: quiz.title,
-      description: "Dinilai otomatis dari Sora.",
-      max_score: 100,
-      share_code: generateShareCode(),
-    });
-    if (!error) break;
-    if (error.code !== "23505") throw new Error(error.message);
-  }
-
-  revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
-}
-
-/**
- * Menarik satu penugasan. Menolak kalau sudah ada nilai di sesi itu:
- * `assessment_results` ikut terhapus lewat cascade, dan nilai yang sudah masuk
- * rapor Tera tidak boleh hilang gara-gara satu klik di sini.
- */
-export async function unassignFromSession(quizId: string, assessmentId: string) {
-  const supabase = await createClient();
-
-  const { count } = await supabase
-    .from("assessment_results")
-    .select("id", { count: "exact", head: true })
-    .eq("assessment_id", assessmentId);
-  if (count && count > 0) return;
-
-  await supabase.from("assessments").delete().eq("id", assessmentId).eq("quiz_id", quizId);
-  revalidatePath(`/dashboard/quizzes/${quizId}/edit`);
-}
+// `assignToSession` dan `unassignFromSession` pindah ke `dashboard/sesi/actions.ts`
+// sebagai `assignExistingToSession` dan `unassignSession`: penugasan sekarang
+// selalu dimulai dari sesinya, bukan dari paketnya. Dibiarkan hidup di sini,
+// keduanya tetap jadi server action yang bisa dipanggil tanpa ada UI-nya.
 
 export async function addQuestion(quizId: string, nextOrderIndex: number) {
   const supabase = await createClient();
@@ -149,7 +75,7 @@ export async function addQuestion(quizId: string, nextOrderIndex: number) {
 }
 
 /** Kolom yang menyusul lewat migrasi; boleh belum ada saat kode ini berjalan. */
-const OPTIONAL_COLUMNS = ["bloom_level", "template"];
+const OPTIONAL_COLUMNS = ["bloom_level"];
 
 /**
  * Autosave target for the question editor. Takes an already-parsed patch
@@ -207,7 +133,7 @@ export async function saveToBank(questionId: string) {
   // Ditulis utuh, bukan dirangkai dari OPTIONAL_COLUMNS: pengurai tipe Supabase
   // hanya mengenali daftar kolom yang berupa literal.
   const columns = "type, prompt, options, correct_answer, weight, explanation, stimulus_images";
-  const withOptional = `${columns}, bloom_level, template` as const;
+  const withOptional = `${columns}, bloom_level` as const;
 
   // Level Bloom ikut menyeberang: ia melekat pada soalnya, bukan pada paket
   // tempat soal itu kebetulan dipakai.
@@ -266,7 +192,7 @@ export async function addManyFromBank(
 
   const columns =
     "id, type, prompt, options, correct_answer, weight, explanation, stimulus_images";
-  const withOptional = `${columns}, bloom_level, template` as const;
+  const withOptional = `${columns}, bloom_level` as const;
 
   const read = await supabase
     .from("question_bank_items")
@@ -287,9 +213,9 @@ export async function addManyFromBank(
       return { quiz_id: quizId, order_index: nextOrderIndex + index, bank_item_id: id, ...content };
     });
 
-  // Sebelum migrasi 082 kolom `bank_item_id` belum ada; `bloom_level` dan
-  // `template` menyusul belakangan. Soalnya tetap masuk — yang hilang hanya
-  // penanda asal atau labelnya. Lebih baik daripada menolak menambahkan soal.
+  // Sebelum migrasi 082 kolom `bank_item_id` belum ada; `bloom_level` menyusul
+  // belakangan. Soalnya tetap masuk — yang hilang hanya penanda asal atau
+  // labelnya. Lebih baik daripada menolak menambahkan soal.
   const candidates = ["bank_item_id", ...OPTIONAL_COLUMNS];
   const dropped: string[] = [];
   let error = null;

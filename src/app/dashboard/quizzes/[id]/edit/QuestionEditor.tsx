@@ -15,26 +15,12 @@ import type {
   StatementGridGradingMode,
   StatementGridOptions,
 } from "@/lib/types";
-import { BRANCH_END } from "@/lib/types";
+import { BRANCH_END, QUESTION_TYPE_LABEL } from "@/lib/types";
 import { BLOOM_LEVELS } from "@/lib/bloom";
-import type { QuestionTemplate } from "@/lib/question-template";
-import TemplateEditor from "./TemplateEditor";
 import { questionIssue } from "@/lib/question-validation";
 import MathField from "@/lib/MathField";
+import IsiSoalEditor from "./IsiSoalEditor";
 import { createClient } from "@/lib/supabase/client";
-
-const typeLabel: Record<QuestionType, string> = {
-  mcq_single: "Pilihan Ganda (satu jawaban)",
-  mcq_multi: "Pilihan Ganda (banyak jawaban / checkbox)",
-  true_false: "Benar / Salah",
-  short_answer: "Isian Singkat",
-  essay: "Esai",
-  matching: "Menjodohkan",
-  ordering: "Mengurutkan",
-  fill_blank: "Mengisi Bagian Kosong",
-  upload_file: "Upload Gambar/File",
-  statement_grid: "Grid Pernyataan (tiap baris Benar/Salah)",
-};
 
 const DEFAULT_STATEMENT_LABELS: [string, string] = ["Benar", "Salah"];
 
@@ -58,18 +44,16 @@ interface Draft {
   orderingItems: string;
   fillBlankAnswers: string;
   explanation: string;
-  /** Satu URL gambar stimulus per baris, mengikuti gaya field daftar lain di sini. */
-  stimulusImages: string;
   /** statement_grid — the three arrays/labels below stay aligned by index. */
   statements: string[];
   statementKeys: (boolean | null)[];
   statementLabels: [string, string];
+  /** Judul kolom pernyataan; "" berarti sudut kiri atas dibiarkan kosong. */
+  statementLabel: string;
   gradingMode: StatementGridGradingMode;
   branching: Branching;
   /** "" berarti belum ditetapkan; select HTML hanya mengenal string. */
   bloomLevel: string;
-  /** Null untuk soal biasa; lihat `lib/question-template.ts`. */
-  template: QuestionTemplate | null;
 }
 
 function toDraft(question: Question): Draft {
@@ -96,30 +80,21 @@ function toDraft(question: Question): Draft {
       ? question.correct_answer.join("\n")
       : "",
     explanation: question.explanation ?? "",
-    stimulusImages: (question.stimulus_images ?? []).join("\n"),
     statements: grid?.statements?.length ? grid.statements : ["", ""],
     statementKeys: Array.isArray(gridKey.answers) ? gridKey.answers : [],
     statementLabels: grid?.answer_labels ?? DEFAULT_STATEMENT_LABELS,
+    statementLabel: grid?.statement_label ?? "",
     gradingMode: gridKey.grading_mode === "all_or_nothing" ? "all_or_nothing" : "proportional",
     branching: question.branching ?? {},
     bloomLevel: question.bloom_level ? String(question.bloom_level) : "",
-    template: question.template ?? null,
   };
-}
-
-/** Satu URL per baris, dibersihkan dari baris kosong dan spasi. */
-function splitUrls(text: string): string[] {
-  return text
-    .split("\n")
-    .map((url) => url.trim())
-    .filter(Boolean);
 }
 
 const IMAGE_BUCKET = "question-images";
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /**
- * Unggah gambar stimulus langsung dari editor ke Supabase Storage.
+ * Unggah gambar soal langsung dari editor ke Supabase Storage.
  *
  * Memakai sesi admin yang sedang login, bukan service key: policy bucket-nya
  * (`is_admin()`, migrasi 069) yang menentukan boleh atau tidak, jadi tidak ada
@@ -143,96 +118,6 @@ async function uploadImage(file: File): Promise<string> {
   if (error) throw new Error(`Gagal mengunggah ${file.name}: ${error.message}`);
 
   return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
-}
-
-/** Tombol unggah gambar; menambahkan URL hasil unggahan ke daftar yang sudah ada. */
-function StimulusUpload({ onUploaded }: { onUploaded: (urls: string[]) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // Berurutan, bukan Promise.all: kalau berkas ketiga ditolak, dua yang
-      // sudah berhasil tetap terpasang dan tutor tinggal mengulang sisanya.
-      const urls: string[] = [];
-      for (const file of Array.from(files)) urls.push(await uploadImage(file));
-      onUploaded(urls);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal mengunggah");
-    } finally {
-      setBusy(false);
-      // Supaya memilih berkas yang sama dua kali tetap memicu onChange.
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        disabled={busy}
-        onChange={(e) => handleFiles(e.target.files)}
-        className="text-xs file:mr-2 file:rounded file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-gray-50 disabled:opacity-50"
-      />
-      {busy && <p className="text-xs text-gray-500">Mengunggah…</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-
-/**
- * Pratinjau gambar stimulus di dalam editor. Tanpa ini yang terlihat hanya
- * deretan URL, dan salah tempel baru ketahuan setelah soal dibuka murid.
- * Gambar yang gagal dimuat ditandai eksplisit — URL mati kelihatan sama saja
- * dengan gambar kosong kalau dibiarkan diam.
- */
-function StimulusPreview({
-  value,
-  onRemove,
-}: {
-  value: string;
-  onRemove: (url: string) => void;
-}) {
-  const [broken, setBroken] = useState<string[]>([]);
-  const urls = splitUrls(value);
-  if (urls.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {urls.map((url) => (
-        <div key={url} className="relative">
-          {broken.includes(url) ? (
-            <div className="flex h-24 w-32 items-center justify-center rounded border border-red-200 bg-red-50 px-2 text-center text-xs text-red-600">
-              Gambar tidak bisa dimuat
-            </div>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={url}
-              alt=""
-              onError={() => setBroken((prev) => [...prev, url])}
-              className="h-24 w-32 rounded border border-gray-200 bg-white object-contain"
-            />
-          )}
-          <button
-            type="button"
-            onClick={() => onRemove(url)}
-            title="Hapus gambar ini"
-            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full border border-gray-300 bg-white text-xs leading-none text-gray-500 hover:bg-red-50 hover:text-red-600"
-          >
-            ×
-          </button>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 /** Maps the draft onto the columns a question actually stores. */
@@ -285,6 +170,7 @@ function toPatch(draft: Draft): QuestionPatch {
     options = {
       statements: rows.map((r) => r.text),
       answer_labels: draft.statementLabels,
+      statement_label: draft.statementLabel.trim() || undefined,
     };
     correct_answer = {
       answers: rows.map((r) => r.key),
@@ -303,10 +189,101 @@ function toPatch(draft: Draft): QuestionPatch {
     correct_answer,
     explanation: draft.explanation.trim() || null,
     branching: Object.keys(branching).length > 0 ? branching : null,
-    stimulus_images: splitUrls(draft.stimulusImages),
     bloom_level: draft.bloomLevel ? Number(draft.bloomLevel) : null,
-    template: draft.template,
   };
+}
+
+/**
+ * Menu titik tiga di kepala kartu — untuk sekarang isinya cuma "Hapus soal".
+ *
+ * Hapus tidak lagi berdiri telanjang di sudut kartu. Ia tetangga langsung dari
+ * tombol yang paling sering ditekan orang di layar ini, tidak bisa dibatalkan,
+ * dan satu klik meleset menghapus soal yang mungkin dipakai beberapa paket.
+ * Di balik satu ketukan tambahan, meleset jadi tidak berakibat apa-apa.
+ *
+ * Konfirmasinya di tempat, bukan `window.confirm`: dialog bawaan membekukan
+ * seluruh halaman demi satu pertanyaan sebaris.
+ */
+function MenuKartu({ onDelete }: { onDelete: () => void }) {
+  const [buka, setBuka] = useState(false);
+  const [konfirmasi, setKonfirmasi] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!buka) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) {
+        setBuka(false);
+        setKonfirmasi(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setBuka(false);
+      setKonfirmasi(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [buka]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={buka}
+        title="Tindakan lain"
+        onClick={() => setBuka((t) => !t)}
+        className={`rounded px-2 py-0.5 text-sm leading-none ${
+          buka ? "bg-gray-100 text-gray-700" : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        }`}
+      >
+        ⋯
+      </button>
+
+      {buka && (
+        <div
+          role="menu"
+          className="absolute top-full right-0 z-20 mt-1 w-52 rounded-lg border border-gray-200 bg-white p-1 shadow-lg"
+        >
+          {konfirmasi ? (
+            <div className="flex flex-col gap-1 p-2">
+              <p className="text-xs text-gray-600">Hapus soal ini? Tidak bisa dibatalkan.</p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="text-xs font-medium text-red-600 hover:underline"
+                >
+                  Ya, hapus
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKonfirmasi(false)}
+                  className="text-xs text-gray-500 hover:underline"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => setKonfirmasi(true)}
+              className="w-full rounded px-2 py-1.5 text-left text-xs text-gray-700 hover:bg-red-50 hover:text-red-600"
+            >
+              Hapus soal
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -322,8 +299,13 @@ export default function QuestionEditor({
   onPromptChange,
   onDelete,
   onSaveToBank,
+  flushRef,
   dragHandleProps,
   branchingContext,
+  tanpaBobot,
+  tanpaPenandaSimpan,
+  catatan,
+  onPerubahan,
 }: {
   question: Question;
   /** Heading for this card, e.g. "Soal 3". */
@@ -332,7 +314,44 @@ export default function QuestionEditor({
   onPromptChange?: (prompt: string) => void;
   onDelete?: () => void;
   onSaveToBank?: () => Promise<void>;
+  /**
+   * Diisi editor dengan cara menuliskan suntingan yang masih mengantre,
+   * sekarang juga. Dipakai halaman draf dan kartu bank soal: tombol "Simpan"
+   * di sana harus membawa ketikan terakhir, yang mungkin baru berumur
+   * seperempat detik.
+   */
+  flushRef?: React.RefObject<(() => Promise<void>) | null>;
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
+  /**
+   * Menyembunyikan field Bobot. Diisi bank soal: bobot adalah berapa besar
+   * andil soal ini terhadap nilai satu kuis, jadi ia baru punya arti setelah
+   * soalnya masuk ke kuis — di bank, angka itu hanya field yang harus
+   * dilewati setiap kali seseorang menyunting soal.
+   */
+  tanpaBobot?: boolean;
+  /**
+   * Menyembunyikan penanda "Menyimpan…/Tersimpan ✓". Diisi pemakai yang
+   * memegang sendiri penyimpanannya — bank soal dan halaman draf — di mana
+   * `save` cuma menaruh suntingan di ingatan halaman, dan penanda yang
+   * mengatakan "Tersimpan" di sana adalah kabar bohong.
+   */
+  tanpaPenandaSimpan?: boolean;
+  /**
+   * Keterangan kecil di kepala kartu, sebaris dengan menu di ujung kanan.
+   * Diisi bank soal dengan kapan soalnya terakhir disimpan — di sana penanda
+   * autosave tidak ada, jadi itulah satu-satunya kabar tentang nasib
+   * suntingannya.
+   */
+  catatan?: React.ReactNode;
+  /**
+   * Dipanggil tiap kali isi soal beranjak dari — atau kembali ke — keadaannya
+   * saat editor dibuka. Yang tahu bedanya cuma editor ini, dan pemakainya yang
+   * menyimpan sendiri butuh tahu: itulah yang membedakan "Belum disimpan" dari
+   * "Terakhir disimpan". Kembali ke persis semula dihitung sebagai tidak ada
+   * perubahan — orang yang mengetik lalu menghapusnya lagi memang tidak
+   * mengubah apa-apa.
+   */
+  onPerubahan?: (adaPerubahan: boolean) => void;
   /** Omitted outside a quiz: branching targets only exist among sibling questions. */
   branchingContext?: {
     sequentialMode: boolean;
@@ -342,7 +361,21 @@ export default function QuestionEditor({
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(() => toDraft(question));
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const skipFirstSave = useRef(true);
+  // Isi soal saat editor ini dibuka, dibekukan sebagai teks untuk dibandingkan.
+  //
+  // Dulu di sini ada `skipFirstSave`: sebuah ref yang melewatkan jalannya efek
+  // yang PERTAMA. Itu salah menghitung yang mau dihitung. React Strict Mode
+  // memasang lalu melepas lalu memasang lagi tiap komponen, jadi jalan kedua
+  // bukan lagi "pertama" — dan editor menuliskan soal yang tidak seorang pun
+  // sentuh. Selama ada autosave, tulisan hantu itu tidak kelihatan (isinya
+  // sama persis). Sejak bank soal berhenti autosave, ia muncul sebagai
+  // "Belum disimpan" di kartu yang baru saja dibuka.
+  //
+  // Yang benar bukan "apakah ini jalan pertama", melainkan "apakah isinya
+  // berbeda". Efek sampingnya menyenangkan: mengetik lalu menghapusnya lagi
+  // sampai persis seperti semula berhenti dihitung sebagai perubahan.
+  const awal = useRef<string | null>(null);
+  if (awal.current === null) awal.current = JSON.stringify(toPatch(toDraft(question)));
   /** The edit the debounce has not written yet, or null when we are in sync. */
   const pending = useRef<ReturnType<typeof toPatch> | null>(null);
   const wasReady = useRef(questionIssue(question) === null);
@@ -382,18 +415,37 @@ export default function QuestionEditor({
 
   // Debounced autosave. Every edit resets the timer, so a burst of typing is
   // one write; the cleanup cancels the pending write if the tutor keeps going.
+  // Latest-ref, sama alasannya dengan `saveRef`: pemakainya kerap mengoper
+  // fungsi anonim, dan tanpa ini tiap render mengulang jeda autosave.
+  const perubahanRef = useRef(onPerubahan);
   useEffect(() => {
-    if (skipFirstSave.current) {
-      skipFirstSave.current = false;
+    perubahanRef.current = onPerubahan;
+  });
+
+  useEffect(() => {
+    const patch = toPatch(draft);
+    if (JSON.stringify(patch) === awal.current) {
+      pending.current = null;
+      setSaveState("idle");
+      perubahanRef.current?.(false);
       return;
     }
 
-    pending.current = toPatch(draft);
+    pending.current = patch;
     setSaveState("saving");
+    perubahanRef.current?.(true);
     const timer = setTimeout(flush, AUTOSAVE_DELAY_MS);
 
     return () => clearTimeout(timer);
   }, [draft, flush]);
+
+  useEffect(() => {
+    if (!flushRef) return;
+    flushRef.current = flush;
+    return () => {
+      flushRef.current = null;
+    };
+  }, [flushRef, flush]);
 
   // The debounce leaves a window where the last keystroke is not saved yet, so
   // also flush when the tutor leaves: unmount covers in-app navigation, and
@@ -420,7 +472,9 @@ export default function QuestionEditor({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="mb-3 flex items-center justify-between">
+      {/* Garis di bawah kepala kartu: label dan keterangan keadaan bicara
+          tentang kartunya, sedangkan yang di bawah garis adalah isi soalnya. */}
+      <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3">
         <span className="flex items-center gap-2 text-xs font-medium text-gray-400">
           {dragHandleProps && (
             <span
@@ -432,23 +486,29 @@ export default function QuestionEditor({
             </span>
           )}
           {label}
+        </span>
+        {/* Keterangan keadaan — apa yang kurang, kapan terakhir disimpan —
+            berkumpul di satu sisi. Dulu yang kurang berdiri di kiri menempel
+            pada label sementara kapan tersimpannya di kanan, jadi dua kabar
+            tentang hal yang sama harus dicari di dua tempat. */}
+        <div className="flex items-center gap-3">
           {issue && (
             <span
               title="Soal ini menahan paket soal dari diterbitkan"
-              className="font-normal text-amber-600"
+              className="text-xs text-amber-600"
             >
-              — {issue}
+              {issue}
             </span>
           )}
-        </span>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400">
-            {saveState === "saving" ? "Menyimpan…" : saveState === "saved" ? "Tersimpan ✓" : ""}
-          </span>
+          {!tanpaPenandaSimpan && (
+            <span className="text-xs text-gray-400">
+              {saveState === "saving" ? "Menyimpan…" : saveState === "saved" ? "Tersimpan ✓" : ""}
+            </span>
+          )}
           {onSaveToBank && (
             <button
               type="button"
-              // Latihan Soal menyalin baris yang tersimpan, jadi suntingan yang
+              // Bank Soal menyalin baris yang tersimpan, jadi suntingan yang
               // tertunda harus mendarat dulu — kalau tidak, yang tersalin versi
               // sebelum ketikan terakhir.
               onClick={async () => {
@@ -457,42 +517,15 @@ export default function QuestionEditor({
               }}
               className="text-xs text-gray-500 hover:underline"
             >
-              Simpan ke Latihan Soal
+              Simpan ke Bank Soal
             </button>
           )}
-          {onDelete && (
-            <button
-              type="button"
-              onClick={onDelete}
-              className="text-xs text-red-500 hover:underline"
-            >
-              Hapus
-            </button>
-          )}
+          {catatan}
+          {onDelete && <MenuKartu onDelete={onDelete} />}
         </div>
       </div>
 
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          Pertanyaan
-          <MathField
-            value={draft.prompt}
-            onChange={(prompt) => {
-              patchDraft({ prompt });
-              onPromptChange?.(prompt);
-            }}
-            rows={2}
-            placeholder="Tulis pertanyaan"
-            hint={
-              draft.type === "fill_blank" ? (
-                <span className="text-xs text-gray-400">
-                  Tandai bagian kosong dengan tiga garis bawah, contoh: Ibukota Indonesia adalah ___.
-                </span>
-              ) : undefined
-            }
-          />
-        </label>
-
         <div className="flex gap-3">
           <label className="flex flex-1 flex-col gap-1 text-sm">
             Tipe Soal
@@ -501,7 +534,7 @@ export default function QuestionEditor({
               onChange={(e) => patchDraft({ type: e.target.value as QuestionType })}
               className="rounded border border-gray-300 px-3 py-2"
             >
-              {Object.entries(typeLabel).map(([value, label]) => (
+              {Object.entries(QUESTION_TYPE_LABEL).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -526,17 +559,39 @@ export default function QuestionEditor({
               ))}
             </select>
           </label>
-          <label className="flex w-24 flex-col gap-1 text-sm">
-            Bobot
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={draft.weight}
-              onChange={(e) => patchDraft({ weight: Number(e.target.value) || 1 })}
-              className="rounded border border-gray-300 px-3 py-2"
-            />
-          </label>
+          {!tanpaBobot && (
+            <label className="flex w-24 flex-col gap-1 text-sm">
+              Bobot
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={draft.weight}
+                onChange={(e) => patchDraft({ weight: Number(e.target.value) || 1 })}
+                className="rounded border border-gray-300 px-3 py-2"
+              />
+            </label>
+          )}
+        </div>
+
+        {/* <div>, bukan <label>: isinya tumpukan blok dengan beberapa kotak
+            teks di dalamnya, dan sebuah label hanya boleh menunjuk satu. */}
+        <div className="flex flex-col gap-1 text-sm">
+          <IsiSoalEditor
+            label="Pertanyaan"
+            value={draft.prompt}
+            onChange={(prompt) => {
+              patchDraft({ prompt });
+              onPromptChange?.(prompt);
+            }}
+            unggahGambar={uploadImage}
+            placeholder="Tulis pertanyaan"
+          />
+          {draft.type === "fill_blank" && (
+            <span className="text-xs text-gray-400">
+              Tandai bagian kosong dengan tiga garis bawah, contoh: Ibukota Indonesia adalah ___.
+            </span>
+          )}
         </div>
 
         {(draft.type === "mcq_single" || draft.type === "mcq_multi") && (
@@ -550,15 +605,17 @@ export default function QuestionEditor({
         )}
 
         {draft.type === "true_false" && (
-          <div className="rounded bg-gray-50 p-3 text-sm">
+          <div className="text-sm">
             Jawaban benar
-            <div className="mt-1 flex gap-4">
+            {/* Benar/Salah di sini jawabannya, jadi sebesar isi soal yang lain. */}
+            <div className="mt-1 flex gap-4 text-base">
               {(["true", "false"] as const).map((v) => (
                 <label key={v} className="flex items-center gap-1">
                   <input
                     type="radio"
                     checked={draft.tfCorrect === v}
                     onChange={() => patchDraft({ tfCorrect: v })}
+                    className="h-4 w-4"
                   />
                   {v === "true" ? "Benar" : "Salah"}
                 </label>
@@ -568,7 +625,7 @@ export default function QuestionEditor({
         )}
 
         {draft.type === "short_answer" && (
-          <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             Kunci jawaban (pisahkan dengan koma jika ada beberapa variasi)
             <MathField
               value={draft.shortAnswerKeys}
@@ -578,7 +635,7 @@ export default function QuestionEditor({
         )}
 
         {draft.type === "matching" && (
-          <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             Pasangan (format: Kiri = Kanan, satu per baris)
             <MathField
               value={draft.matchingPairs}
@@ -590,7 +647,7 @@ export default function QuestionEditor({
         )}
 
         {draft.type === "ordering" && (
-          <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             Urutan yang benar (satu item per baris, dari atas ke bawah)
             <MathField
               value={draft.orderingItems}
@@ -601,7 +658,7 @@ export default function QuestionEditor({
         )}
 
         {draft.type === "fill_blank" && (
-          <label className="flex flex-col gap-1 rounded bg-gray-50 p-3 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             Jawaban tiap bagian kosong (satu per baris, urut sesuai posisi ___ di pertanyaan)
             <MathField
               value={draft.fillBlankAnswers}
@@ -616,6 +673,7 @@ export default function QuestionEditor({
             statements={draft.statements}
             statementKeys={draft.statementKeys}
             statementLabels={draft.statementLabels}
+            statementLabel={draft.statementLabel}
             gradingMode={draft.gradingMode}
             onChange={patchDraft}
           />
@@ -633,74 +691,18 @@ export default function QuestionEditor({
           </p>
         )}
 
+        {/* Editor blok yang sama dengan pertanyaan: pembahasan yang bagus kerap
+            justru butuh tabel langkah atau gambar bantu, dan tidak ada alasan
+            alat itu berhenti di batas pertanyaan. */}
         <div className="flex flex-col gap-1 text-sm">
-          <label className="flex flex-col gap-1">
-            Gambar soal{" "}
-            <span className="text-xs text-gray-400">
-              — opsional; satu URL per baris, ditampilkan di atas pertanyaan. Rumus jangan dipasang
-              sebagai gambar — tulis sebagai LaTeX di pertanyaan supaya bisa dicari dan diperbesar.
-            </span>
-            <textarea
-              value={draft.stimulusImages}
-              onChange={(e) => patchDraft({ stimulusImages: e.target.value })}
-              rows={2}
-              placeholder="https://…/gambar.png"
-              className="rounded border border-gray-300 px-3 py-2 font-mono text-xs"
-            />
-          </label>
-          <StimulusUpload
-            onUploaded={(urls) =>
-              patchDraft({
-                stimulusImages: [...splitUrls(draft.stimulusImages), ...urls].join("\n"),
-              })
-            }
-          />
-          <StimulusPreview
-            value={draft.stimulusImages}
-            onRemove={(url) =>
-              patchDraft({
-                stimulusImages: splitUrls(draft.stimulusImages)
-                  .filter((u) => u !== url)
-                  .join("\n"),
-              })
-            }
-          />
-        </div>
-
-        {/* Hanya untuk pilihan ganda: varian angka menuntut kunci dan pengecoh
-            yang bisa dihitung, dan itu tidak ada artinya untuk esai, isian, atau
-            menjodohkan. */}
-        {(draft.type === "mcq_single" || draft.type === "mcq_multi") && (
-          <TemplateEditor
-            prompt={draft.prompt}
-            options={toPatch(draft).options}
-            value={draft.template}
-            onChange={(template) => patchDraft({ template })}
-            // Varian ditulis ke soalnya sendiri, bukan cuma ditampilkan: murid
-            // membaca `prompt`, jadi di situlah angka konkretnya harus mendarat.
-            onApply={({ prompt, choices, correct }) =>
-              patchDraft({
-                prompt,
-                choices,
-                correctChoice: correct,
-                correctChoices: draft.type === "mcq_multi" ? [correct] : draft.correctChoices,
-              })
-            }
-          />
-        )}
-
-        <label className="flex flex-col gap-1 text-sm">
-          Pembahasan{" "}
-          <span className="text-xs text-gray-400">
-            — opsional; ditampilkan ke murid setelah menjawab di mode latihan mandiri
-          </span>
-          <MathField
+          <IsiSoalEditor
+            label="Pembahasan"
             value={draft.explanation}
             onChange={(explanation) => patchDraft({ explanation })}
-            rows={2}
+            unggahGambar={uploadImage}
             placeholder="Kenapa jawabannya begitu"
           />
-        </label>
+        </div>
 
         {branchChoices.length > 0 && (
           <div className="flex flex-col gap-2 rounded bg-blue-50 p-3 text-sm">
@@ -745,12 +747,14 @@ function StatementRows({
   statements,
   statementKeys,
   statementLabels,
+  statementLabel,
   gradingMode,
   onChange,
 }: {
   statements: string[];
   statementKeys: (boolean | null)[];
   statementLabels: [string, string];
+  statementLabel: string;
   gradingMode: StatementGridGradingMode;
   onChange: (changes: Partial<Draft>) => void;
 }) {
@@ -778,63 +782,95 @@ function StatementRows({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded bg-gray-50 p-3">
-      <p className="text-sm">
+    <div className="flex flex-col gap-3 text-sm">
+      <p>
         Pernyataan{" "}
         <span className="text-xs text-gray-400">
           — tandai kunci tiap baris; murid menjawab satu per satu
         </span>
       </p>
 
-      <div className="flex items-center gap-2 text-xs text-gray-500">
-        Label jawaban:
-        <input
-          value={statementLabels[0]}
-          onChange={(e) => setLabel(0, e.target.value)}
-          className="w-24 rounded border border-gray-300 px-2 py-1"
-        />
-        <input
-          value={statementLabels[1]}
-          onChange={(e) => setLabel(1, e.target.value)}
-          className="w-24 rounded border border-gray-300 px-2 py-1"
-        />
-      </div>
-
-      {statements.map((statement, i) => (
-        <div key={i} className="flex items-start gap-2">
-          <div className="mt-2 flex shrink-0 gap-2 text-xs">
-            {([true, false] as const).map((key) => (
-              <label key={String(key)} className="flex items-center gap-1">
+      {/* Bentuknya tabel, sama seperti yang dibaca di kartu bank soal dan sama
+          seperti yang dikerjakan murid: pernyataan menurun, kategori melintang.
+          Label kategorinya disunting di kepala kolomnya sendiri — dulu ia
+          sepasang kotak "Label jawaban" yang berdiri jauh dari kolom yang
+          dinamainya, dan kaitannya harus ditebak. */}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr>
+              {/* Sudut kiri atas ikut bisa diisi. Boleh dibiarkan kosong —
+                  judul tiap baris memang pernyataannya sendiri — tapi grid yang
+                  kategorinya bukan Benar/Salah kerap perlu menyebut barisnya
+                  berisi apa: "Peristiwa", "Pernyataan", "Zat". */}
+              <th scope="col" className="w-1/2 border border-gray-200 px-3 py-3">
                 <input
-                  type="radio"
-                  name={`statement_${i}`}
-                  checked={statementKeys[i] === key}
-                  disabled={!statement.trim()}
-                  onChange={() => setKeyAt(i, key)}
-                  className="disabled:opacity-30"
+                  value={statementLabel}
+                  onChange={(e) => onChange({ statementLabel: e.target.value })}
+                  placeholder="Pernyataan (opsional)"
+                  aria-label="Judul kolom pernyataan"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-base font-normal"
                 />
-                {statementLabels[key ? 0 : 1] || (key ? "Benar" : "Salah")}
-              </label>
+              </th>
+              {([0, 1] as const).map((slot) => (
+                <th key={slot} scope="col" className="border border-gray-200 px-3 py-3">
+                  <input
+                    value={statementLabels[slot]}
+                    onChange={(e) => setLabel(slot, e.target.value)}
+                    placeholder={slot === 0 ? "Benar" : "Salah"}
+                    aria-label={`Label kategori ${slot + 1}`}
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-base font-normal"
+                  />
+                </th>
+              ))}
+              <th className="w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {statements.map((statement, i) => (
+              <tr key={i}>
+                <th scope="row" className="border border-gray-200 p-2 font-normal align-top">
+                  <MathField
+                    value={statement}
+                    onChange={(text) => setStatementAt(i, text)}
+                    placeholder={`Pernyataan ${i + 1}`}
+                  />
+                </th>
+                {([true, false] as const).map((key) => (
+                  <td
+                    key={String(key)}
+                    className="border border-gray-200 px-3 py-3 text-center align-top"
+                  >
+                    <input
+                      type="radio"
+                      name={`statement_${i}`}
+                      checked={statementKeys[i] === key}
+                      disabled={!statement.trim()}
+                      onChange={() => setKeyAt(i, key)}
+                      // Barisnya masih kosong: menandai kunci untuk pernyataan
+                      // yang belum ditulis tidak berarti apa-apa.
+                      title={statement.trim() ? undefined : "Tulis pernyataannya dulu"}
+                      aria-label={statementLabels[key ? 0 : 1] || (key ? "Benar" : "Salah")}
+                      className="mt-[13px] h-4 w-4 disabled:opacity-30"
+                    />
+                  </td>
+                ))}
+                <td className="align-top">
+                  <button
+                    type="button"
+                    onClick={() => removeAt(i)}
+                    disabled={statements.length <= 1}
+                    title="Hapus pernyataan"
+                    className="mt-2 px-1 text-gray-400 hover:text-red-500 disabled:opacity-30"
+                  >
+                    ×
+                  </button>
+                </td>
+              </tr>
             ))}
-          </div>
-          <div className="flex-1">
-            <MathField
-              value={statement}
-              onChange={(text) => setStatementAt(i, text)}
-              placeholder={`Pernyataan ${i + 1}`}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => removeAt(i)}
-            disabled={statements.length <= 1}
-            title="Hapus pernyataan"
-            className="mt-2 px-1 text-gray-400 hover:text-red-500 disabled:opacity-30"
-          >
-            ×
-          </button>
-        </div>
-      ))}
+          </tbody>
+        </table>
+      </div>
 
       <button
         type="button"
@@ -920,13 +956,12 @@ function ChoiceRows({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded bg-gray-50 p-3">
-      <p className="text-sm">
-        Pilihan jawaban{" "}
-        <span className="text-xs text-gray-400">
-          — {multi ? "centang semua yang benar" : "klik lingkaran di kiri untuk menandai kunci"}
-        </span>
-      </p>
+    // Tanpa kotak dan tanpa latar sendiri: pilihan jawaban bukan sisipan di
+    // tengah soal, ia bagian soal yang sama pentingnya dengan pertanyaannya —
+    // dan satu-satunya yang dibedakan warna di layar ini seharusnya yang
+    // memang beda, bukan yang paling sering dibaca.
+    <div className="flex flex-col gap-3 text-sm">
+      <p>Pilihan jawaban</p>
 
       {choices.map((choice, i) => (
         <div key={i} className="flex items-start gap-2">
@@ -936,13 +971,21 @@ function ChoiceRows({
             disabled={!choice.trim()}
             onChange={() => toggleCorrect(choice)}
             title={choice.trim() ? "Tandai sebagai jawaban benar" : "Isi pilihan ini dulu"}
-            className="mt-3 disabled:opacity-30"
+            // Baris pertama teks di dalam kolom mulai 9px dari atas (garis +
+            // padding) dan tingginya 24px, jadi pusatnya 21px; kotak 16px
+            // ditaruh 13px di bawah puncak baris supaya keduanya sepusat.
+            className="mt-[13px] h-4 w-4 disabled:opacity-30"
           />
           <div className="flex-1">
-            <MathField
+            {/* Editor blok yang sama dengan pertanyaan: pilihan jawaban TKA
+                kerap berupa gambar atau potongan tabel, dan pilihan yang cuma
+                bisa berupa teks memaksa soalnya ditulis ulang jadi soal lain. */}
+            <IsiSoalEditor
               value={choice}
               onChange={(text) => setChoiceAt(i, text)}
+              unggahGambar={uploadImage}
               placeholder={`Pilihan ${i + 1}`}
+              tombolSamar
             />
           </div>
           <button

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Answer, Attempt, Question } from "@/lib/types";
 import { MathText } from "@/lib/latex";
-import { formatResponse } from "@/lib/answer-format";
+import { ringkasIsiSoal } from "@/lib/isi-soal";
+import { jawabanRingkas } from "@/lib/answer-format";
 import { saveTutorFeedback } from "./actions";
 
 const IDLE_THRESHOLD_MS = 2 * 60 * 1000;
@@ -138,12 +139,12 @@ export default function LiveMonitor({
                   return (
                     <div key={question.id} className="rounded bg-gray-50 p-3 text-sm">
                       <p className="font-medium">
-                        <MathText text={question.prompt} />
+                        <MathText text={ringkasIsiSoal(question.prompt)} />
                       </p>
                       <p className="mt-1 text-gray-600">
                         Jawaban:{" "}
                         {answer ? (
-                          <MathText text={formatResponse(question, answer.response)} />
+                          <MathText text={jawabanRingkas(question, answer.response)} />
                         ) : (
                           <em className="text-gray-400">belum dijawab</em>
                         )}

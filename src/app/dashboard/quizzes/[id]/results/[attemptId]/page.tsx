@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Attempt, Question } from "@/lib/types";
 import { MathText } from "@/lib/latex";
-import { formatResponse } from "@/lib/answer-format";
+import IsiSoal from "@/lib/isi-soal";
+import { jawabanRingkas } from "@/lib/answer-format";
 import { gradeEssayAnswer } from "./actions";
 
 interface AnswerRow {
@@ -54,13 +55,11 @@ export default async function AttemptDetailPage({
           const boundGrade = gradeEssayAnswer.bind(null, id, attemptId, answer.id);
           return (
             <div key={answer.id} className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="font-medium">
-                <MathText text={answer.questions.prompt} />
-              </p>
+              <IsiSoal text={answer.questions.prompt} className="font-medium" />
               <p className="mt-1 text-sm text-gray-600">
                 Jawaban:{" "}
                 <span className="font-medium">
-                  <MathText text={formatResponse(answer.questions, answer.response)} />
+                  <MathText text={jawabanRingkas(answer.questions, answer.response)} />
                 </span>
               </p>
 

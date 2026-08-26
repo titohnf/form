@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import type { QuizStatus } from "@/lib/types";
+import { QUIZ_KIND_LABEL, type QuizKind, type QuizStatus } from "@/lib/types";
 import { relativeTime } from "@/lib/relative-time";
+import { FilterBar, SearchInput, FilterSelect } from "@/lib/SearchFilter";
 import { duplicateQuiz, deleteQuiz } from "./actions";
 
 /**
@@ -21,6 +22,7 @@ export interface QuizListItem {
   id: string;
   title: string;
   status: QuizStatus;
+  kind: QuizKind;
   shareCode: string | null;
   /** `quizzes.updated_at` kalau migrasi 078 sudah jalan, kalau belum `created_at`. */
   updatedAt: string;
@@ -56,6 +58,17 @@ const audienceColor: Record<QuizAudience, string> = {
   publik: "bg-sky-50 text-sky-700",
 };
 
+/**
+ * Jenis paket dulunya tiga menu terpisah. Dilebur jadi satu gudang, jenisnya
+ * turun pangkat: tetap istilah produk yang dipakai sehari-hari, tapi jadi label
+ * dan saringan, bukan alamat.
+ */
+const kindColor: Record<QuizKind, string> = {
+  asesmen: "bg-blue-50 text-blue-700",
+  remedial: "bg-purple-50 text-purple-700",
+  tryout: "bg-teal-50 text-teal-700",
+};
+
 const sourceLabel: Record<"admin" | "tutor", string> = {
   admin: "Admin",
   tutor: "Tutor",
@@ -76,18 +89,13 @@ const statusColor: Record<QuizStatus, string> = {
 export default function QuizList({
   items,
   renderedAt,
-  emptyLabel,
-  kind,
 }: {
   items: QuizListItem[];
   renderedAt: number;
-  /** Nama kategorinya, dipakai di pesan daftar kosong. */
-  emptyLabel: string;
-  /** Disisipkan ke tautan editor sebagai `?dari=` supaya sidebar tahu menu asalnya. */
-  kind: string;
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("updated");
+  const [kind, setKind] = useState<QuizKind | "">("");
   const [audience, setAudience] = useState<QuizAudience | "">("");
   const [source, setSource] = useState<"admin" | "tutor" | "">("");
 
@@ -99,6 +107,7 @@ export default function QuizList({
     const filtered = items.filter(
       (item) =>
         (!needle || item.title.toLowerCase().includes(needle)) &&
+        (!kind || item.kind === kind) &&
         (!audience || item.audience === audience) &&
         (!source || item.source === source),
     );
@@ -107,78 +116,55 @@ export default function QuizList({
       const key = sort === "created" ? "createdAt" : "updatedAt";
       return new Date(b[key]).getTime() - new Date(a[key]).getTime();
     });
-  }, [items, query, sort, audience, source]);
+  }, [items, query, sort, kind, audience, source]);
 
   if (items.length === 0) {
     return (
       <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-gray-500">
-        Belum ada {emptyLabel.toLowerCase()}. Buat yang pertama!
+        Belum ada paket soal. Buat yang pertama!
       </p>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-        <div className="relative min-w-0 flex-1">
-          <svg
-            className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-            />
-          </svg>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari judul paket soal…"
-            aria-label="Cari paket soal"
-            className="w-full rounded-lg border border-slate-300 py-2 pr-3 pl-9 text-sm"
-          />
-        </div>
+      <FilterBar>
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Cari judul paket soal…"
+          label="Cari paket soal"
+        />
 
-        <select
-          value={audience}
-          onChange={(e) => setAudience(e.target.value as QuizAudience | "")}
-          aria-label="Saring tipe"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        >
+        <FilterSelect value={kind} onChange={setKind} label="Saring jenis">
+          <option value="">Semua jenis</option>
+          {(Object.keys(QUIZ_KIND_LABEL) as QuizKind[]).map((k) => (
+            <option key={k} value={k}>
+              {QUIZ_KIND_LABEL[k]}
+            </option>
+          ))}
+        </FilterSelect>
+
+        <FilterSelect value={audience} onChange={setAudience} label="Saring tipe">
           <option value="">Semua tipe</option>
           <option value="privat">Privat</option>
           <option value="publik">Publik</option>
-        </select>
+        </FilterSelect>
 
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value as "admin" | "tutor" | "")}
-          aria-label="Saring sumber"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        >
+        <FilterSelect value={source} onChange={setSource} label="Saring sumber">
           <option value="">Semua sumber</option>
           <option value="admin">Admin</option>
           <option value="tutor">Tutor</option>
-        </select>
+        </FilterSelect>
 
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
-          aria-label="Urutkan"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        >
+        <FilterSelect value={sort} onChange={setSort} label="Urutkan">
           {(Object.keys(SORT_LABEL) as SortKey[]).map((key) => (
             <option key={key} value={key}>
               Urutkan: {SORT_LABEL[key]}
             </option>
           ))}
-        </select>
-      </div>
+        </FilterSelect>
+      </FilterBar>
 
       {visible.length === 0 ? (
         <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-gray-500">
@@ -187,7 +173,7 @@ export default function QuizList({
       ) : (
         <div className="flex flex-col divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           {visible.map((item) => (
-            <Row key={item.id} item={item} renderedAt={renderedAt} kind={kind} />
+            <Row key={item.id} item={item} renderedAt={renderedAt} />
           ))}
         </div>
       )}
@@ -195,7 +181,7 @@ export default function QuizList({
   );
 }
 
-function Row({ item, renderedAt, kind }: { item: QuizListItem; renderedAt: number; kind: string }) {
+function Row({ item, renderedAt }: { item: QuizListItem; renderedAt: number }) {
   const [pending, startTransition] = useTransition();
   // Konfirmasi hapus ditahan di state, bukan `confirm()`: dialog bawaan
   // browser memblokir seluruh halaman dan tidak bisa ditata.
@@ -231,7 +217,7 @@ function Row({ item, renderedAt, kind }: { item: QuizListItem; renderedAt: numbe
 
       <div className="min-w-0 flex-1">
         <Link
-          href={`/dashboard/quizzes/${item.id}/edit?dari=${kind}`}
+          href={`/dashboard/quizzes/${item.id}/edit?dari=paket`}
           className="block truncate font-medium text-gray-900 hover:underline"
         >
           {item.title}
@@ -241,6 +227,12 @@ function Row({ item, renderedAt, kind }: { item: QuizListItem; renderedAt: numbe
           {item.source && ` · Dibuat ${sourceLabel[item.source]}`}
         </p>
       </div>
+
+      <span
+        className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${kindColor[item.kind]}`}
+      >
+        {QUIZ_KIND_LABEL[item.kind]}
+      </span>
 
       <span
         title={audienceHint[item.audience]}

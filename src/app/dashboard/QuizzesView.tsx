@@ -13,20 +13,16 @@ interface TutorSession {
   classes: { name: string } | null;
 }
 
-/** Kalimat pembeda tiap menu; tanpa ini ketiga halaman terlihat identik. */
-const KIND_BLURB: Record<QuizKind, string> = {
-  asesmen: "Dipakai menilai satu sesi kelas. Tugaskan ke sesi Tera dari halaman editnya supaya nilainya masuk ke rapor.",
-  remedial: "Untuk murid yang perlu mengulang. Biasanya soalnya diambil dari Latihan Soal per topik yang belum dikuasai.",
-  tryout: "Simulasi ujian penuh. Boleh ditugaskan ke sesi, boleh juga dibagikan sebagai kode lepas.",
-};
-
 /**
- * Daftar paket soal satu kategori — dipakai oleh menu Asesmen, Remedial, dan
- * Try Out. Satu komponen, bukan tiga halaman yang mirip: yang berbeda hanya
- * `kind`, dan tiga salinan dari query sepanjang ini akan langsung menyimpang
- * begitu salah satunya disunting.
+ * Gudang paket soal: semua jenis dalam satu daftar.
+ *
+ * Dulu ini tiga menu (Asesmen, Remedial, Try Out) yang menampilkan komponen
+ * yang sama dengan `kind` berbeda. Jenisnya turun pangkat jadi label dan
+ * saringan karena satuannya sama — semuanya baris `quizzes` — dan tiga alamat
+ * untuk satu satuan berarti orang harus menebak dulu di mana barangnya sebelum
+ * bisa mencarinya.
  */
-export default async function QuizzesView({ kind }: { kind: QuizKind }) {
+export default async function QuizzesView() {
   const supabase = await createClient();
 
   // Identitasnya dipakai bersama layout lewat `cache()` — tidak menembak
@@ -42,9 +38,7 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
     supabase.from("quizzes").select("*").order("created_at", { ascending: false }),
   ]);
 
-  const typedQuizzes = ((quizzes ?? []) as (Quiz & { updated_at?: string })[]).filter(
-    (q) => (q.kind ?? "asesmen") === kind,
-  );
+  const typedQuizzes = (quizzes ?? []) as (Quiz & { updated_at?: string })[];
 
   const quizIds = typedQuizzes.map((q) => q.id);
   const creatorIds = [...new Set(typedQuizzes.map((q) => q.created_by).filter(Boolean))] as string[];
@@ -86,6 +80,7 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
       id: quiz.id,
       title: quiz.title,
       status: quiz.status,
+      kind: asKind(quiz.kind),
       shareCode: quiz.share_code,
       updatedAt: quiz.updated_at ?? quiz.created_at,
       createdAt: quiz.created_at,
@@ -110,23 +105,38 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
     : { data: null };
   const sessions = (sessionRows ?? []) as unknown as TutorSession[];
 
-  const label = QUIZ_KIND_LABEL[kind];
-
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">{label}</h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">{KIND_BLURB[kind]}</p>
+          <h1 className="text-xl font-semibold text-gray-900">Paket Soal</h1>
+          <p className="mt-1 max-w-2xl text-sm text-gray-500">
+            Semua paket soal yang pernah dibuat, jenis apa pun. Asesmen menempel ke sesi kelas dan
+            nilainya masuk ke rapor Tera — tugaskan dari menu Asesmen. Remedial dan Try Out boleh
+            berdiri sendiri sebagai kode lepas.
+          </p>
         </div>
         {!isTutor && (
-          <form action={createQuiz} className="shrink-0">
-            <input type="hidden" name="kind" value={kind} />
+          <form action={createQuiz} className="flex shrink-0 items-center gap-2">
+            {/* Jenisnya dipilih di sini karena halaman ini tidak lagi mewakili
+                satu jenis; dulu ia disisipkan diam-diam sebagai input hidden. */}
+            <select
+              name="kind"
+              defaultValue="asesmen"
+              aria-label="Jenis paket soal"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              {(Object.keys(QUIZ_KIND_LABEL) as QuizKind[]).map((k) => (
+                <option key={k} value={k}>
+                  {QUIZ_KIND_LABEL[k]}
+                </option>
+              ))}
+            </select>
             <SubmitButton
               pendingLabel="Membuat…"
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium whitespace-nowrap text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
-              + Buat {label}
+              + Buat
             </SubmitButton>
           </form>
         )}
@@ -143,12 +153,23 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
             action={createQuiz}
             className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5"
           >
-            <input type="hidden" name="kind" value={kind} />
+            <select
+              name="kind"
+              defaultValue="asesmen"
+              aria-label="Jenis paket soal"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              {(Object.keys(QUIZ_KIND_LABEL) as QuizKind[]).map((k) => (
+                <option key={k} value={k}>
+                  {QUIZ_KIND_LABEL[k]}
+                </option>
+              ))}
+            </select>
             <select
               name="session_id"
               required
               defaultValue=""
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             >
               <option value="" disabled>
                 Pilih sesi kelas…
@@ -171,12 +192,17 @@ export default async function QuizzesView({ kind }: { kind: QuizKind }) {
               pendingLabel="Membuat…"
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
-              + Buat {label} Sesi
+              + Buat untuk Sesi
             </SubmitButton>
           </form>
         ))}
 
-      <QuizList items={listItems} renderedAt={nowMs()} emptyLabel={label} kind={kind} />
+      <QuizList items={listItems} renderedAt={nowMs()} />
     </div>
   );
+}
+
+/** Baris lama bisa belum punya `kind` (sebelum migrasi 079); bawaannya asesmen. */
+function asKind(raw: string | null | undefined): QuizKind {
+  return raw === "remedial" || raw === "tryout" ? raw : "asesmen";
 }

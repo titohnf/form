@@ -10,6 +10,33 @@ export type QuestionType =
   | "upload_file"
   | "statement_grid";
 
+/**
+ * Nama tiap tipe soal, satu-satunya tempat ia ditulis.
+ *
+ * Tiga bentuk pilihan ganda dinamai sebagai satu keluarga, mengikuti istilah
+ * asesmen yang dipakai di kelas: yang klasik "Pilihan Ganda", dan dua bentuk
+ * kompleksnya dibedakan di dalam kurung — Kategori untuk grid yang tiap
+ * barisnya dikelompokkan, MCMA untuk yang jawaban benarnya boleh lebih dari
+ * satu. Sebelumnya keduanya bernama "Grid Pernyataan" dan "Pilihan Ganda
+ * (banyak jawaban / checkbox)", dua nama yang tidak memperlihatkan bahwa
+ * keduanya bersaudara.
+ *
+ * Urutannya juga urutan dropdown di editor: keluarga pilihan ganda lebih dulu,
+ * karena itu yang paling sering dipakai.
+ */
+export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
+  mcq_single: "Pilihan Ganda",
+  statement_grid: "Pilihan Ganda Kompleks (Kategori)",
+  mcq_multi: "Pilihan Ganda Kompleks (MCMA)",
+  true_false: "Benar / Salah",
+  short_answer: "Isian Singkat",
+  essay: "Esai",
+  matching: "Menjodohkan",
+  ordering: "Mengurutkan",
+  fill_blank: "Mengisi Bagian Kosong",
+  upload_file: "Upload Gambar/File",
+};
+
 export type QuizStatus = "draft" | "published" | "closed";
 
 /**
@@ -45,6 +72,13 @@ export interface OrderingOptions {
 
 export interface StatementGridOptions {
   statements: string[];
+  /**
+   * Judul kolom pernyataannya, mis. "Pernyataan" atau "Peristiwa". Opsional:
+   * sebagian besar grid tidak butuh — judul tiap baris adalah pernyataannya
+   * sendiri — tapi grid yang kategorinya bukan Benar/Salah kerap perlu
+   * mengatakan barisnya berisi apa sebelum kolom kategorinya masuk akal.
+   */
+  statement_label?: string;
   /** The two answer buttons, in [true, false] order. "Benar"/"Salah" by default, but a Fakta/Opini grid works the same. */
   answer_labels: [string, string];
 }
@@ -101,15 +135,13 @@ export interface Question {
   /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
   bloom_level?: number | null;
   /**
-   * Templat varian angka, null untuk soal biasa. Dipakai saat menyalin soal ke
-   * paket remedial. Lihat `lib/question-template.ts`.
-   */
-  template?: import("./question-template").QuestionTemplate | null;
-  /**
-   * Stimulus shown above the prompt, in array order. Empty for questions that
-   * are pure text. TKA leans on these heavily — diagrams, geometric figures,
-   * charts — which is why they live here rather than being squeezed into the
-   * prompt. Equations are never images: those belong in the prompt as LaTeX.
+   * Peninggalan: gambar yang dulu selalu ditampilkan di atas prompt.
+   *
+   * Sekarang gambar hidup di dalam `prompt` sebagai `[gambar: url]`, di posisi
+   * yang dipilih penyusun soalnya — lihat `lib/isi-soal.tsx`. Kolomnya belum
+   * dibuang karena skema dimiliki repo Tera dan barisnya masih menyimpan data
+   * sampai `npm run migrate:gambar` dijalankan; sesudah itu tidak ada lagi
+   * yang menulis maupun membacanya untuk ditampilkan.
    */
   stimulus_images: string[];
 }
@@ -126,11 +158,10 @@ export interface QuestionPatch {
   correct_answer: unknown;
   explanation: string | null;
   branching: Branching | null;
-  stimulus_images: string[];
+  /** Peninggalan; editor tidak lagi mengisinya. Lihat `Question.stimulus_images`. */
+  stimulus_images?: string[];
   /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
   bloom_level: number | null;
-  /** Templat varian angka, null untuk soal biasa. Lihat `lib/question-template.ts`. */
-  template: import("./question-template").QuestionTemplate | null;
 }
 
 export interface QuizSettings {
@@ -284,6 +315,12 @@ export interface Learner {
 export interface QuestionBankItem {
   id: string;
   created_by: string | null;
+  /**
+   * Kapan soalnya terakhir disunting. Diisi trigger di database (migrasi 116 di
+   * repo Tera), jadi ia tetap benar siapa pun yang menulis — editor, impor CSV,
+   * penyalinan dari paket. Opsional di tipe ini karena kolomnya menyusul.
+   */
+  updated_at?: string | null;
   type: QuestionType;
   prompt: string;
   options: QuestionOptions;

@@ -5,6 +5,7 @@ import type { Answer, Attempt, Question, Quiz } from "@/lib/types";
 import { rankAttempts, computeBadges } from "@/lib/gamification";
 import { perQuestionAccuracy } from "@/lib/question-stats";
 import { MathText } from "@/lib/latex";
+import { ringkasIsiSoal } from "@/lib/isi-soal";
 import RemedialBuilder from "./RemedialBuilder";
 
 export default async function QuizResultsPage({
@@ -65,7 +66,7 @@ export default async function QuizResultsPage({
               <div key={question.id} className="flex items-center gap-3 text-sm">
                 <span className="w-6 text-gray-400">{i + 1}.</span>
                 <span className="flex-1 truncate">
-                  <MathText text={question.prompt} />
+                  <MathText text={ringkasIsiSoal(question.prompt)} />
                 </span>
                 <span className="text-gray-500">
                   {accuracy === null ? "belum ada data" : `${accuracy}% benar (${answeredCount} jawaban)`}

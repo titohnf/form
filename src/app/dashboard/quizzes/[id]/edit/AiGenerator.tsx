@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MathText } from "@/lib/latex";
+import IsiSoal from "@/lib/isi-soal";
 import { addGeneratedQuestions, type GeneratedQuestionInput } from "./actions";
 
 export default function AiGenerator({
@@ -31,7 +32,7 @@ export default function AiGenerator({
     if (file) formData.set("file", file);
 
     try {
-      const res = await fetch(`/dashboard/quizzes/${quizId}/edit/generate`, {
+      const res = await fetch("/dashboard/generate", {
         method: "POST",
         body: formData,
       });
@@ -121,9 +122,7 @@ export default function AiGenerator({
             <label key={i} className="flex items-start gap-2 rounded border border-gray-200 bg-white p-2 text-sm">
               <input type="checkbox" checked={selected.has(i)} onChange={() => toggle(i)} className="mt-1" />
               <div>
-                <p className="font-medium">
-                  <MathText text={q.prompt} />
-                </p>
+                <IsiSoal text={q.prompt} className="font-medium" />
                 <ul className="mt-1 list-disc pl-5 text-gray-500">
                   {q.choices.map((c) => (
                     <li key={c} className={c === q.correct_answer ? "font-medium text-green-700" : ""}>

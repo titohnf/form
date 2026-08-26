@@ -4,14 +4,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { missingColumn, without } from "@/lib/missing-column";
 import { perQuestionAccuracy, weakQuestions } from "@/lib/question-stats";
-import { variantOf } from "@/lib/question-template";
 import type { Answer, Attempt, Question, Quiz } from "@/lib/types";
 
 const BASE_COLUMNS =
   "id, type, prompt, options, correct_answer, weight, order_index, explanation, stimulus_images, bank_item_id";
 
 /** Kolom yang menyusul lewat migrasi; boleh belum ada saat kode ini berjalan. */
-const OPTIONAL_COLUMNS = ["bloom_level", "template"];
+const OPTIONAL_COLUMNS = ["bloom_level"];
 
 /**
  * Merakit paket Remedial dari soal yang paling banyak dijawab salah.
@@ -24,9 +23,8 @@ const OPTIONAL_COLUMNS = ["bloom_level", "template"];
  * "belum dikuasai" berbeda antar mapel; menetapkannya di kode berarti memutuskan
  * sesuatu yang bukan urusan kode.
  *
- * Soal yang punya templat lahir dengan angka baru (lihat `variantOf`), yang
- * tidak punya disalin apa adanya — sebagian besar soal memang tidak punya angka
- * untuk diganti, dan mengulanginya utuh tetap lebih berguna daripada tidak
+ * Soalnya disalin apa adanya, dengan urutan soal dan pilihan diacak.
+ * Mengulangi soal yang sama utuh jauh lebih berguna daripada tidak
  * diremedialkan sama sekali.
  */
 export async function createRemedialFromQuiz(quizId: string, formData: FormData) {
@@ -85,9 +83,8 @@ export async function createRemedialFromQuiz(quizId: string, formData: FormData)
       // mode tamu.
       session_id: source.session_id,
       class_id: source.class_id,
-      // Diacak karena soalnya memang soal yang sama. Untuk soal yang tidak
-      // punya templat, inilah satu-satunya yang menghalangi murid menghafal
-      // urutan jawaban alih-alih memahami soalnya.
+      // Diacak karena soalnya memang soal yang sama: inilah satu-satunya yang
+      // menghalangi murid menghafal urutan jawaban alih-alih memahami soalnya.
       settings: { shuffle_questions: true, shuffle_choices: true },
     })
     .select("id")
@@ -95,21 +92,19 @@ export async function createRemedialFromQuiz(quizId: string, formData: FormData)
 
   if (error || !created) throw new Error(error?.message ?? "Gagal membuat paket remedial");
 
-  const rows = weak.map(({ question }, index) => {
-    const variant = variantOf(question);
-    return {
-      quiz_id: created.id,
-      order_index: index,
-      type: question.type,
-      weight: question.weight,
-      explanation: question.explanation,
-      stimulus_images: question.stimulus_images ?? [],
-      bank_item_id: question.bank_item_id ?? null,
-      bloom_level: question.bloom_level ?? null,
-      template: question.template ?? null,
-      ...variant,
-    };
-  });
+  const rows = weak.map(({ question }, index) => ({
+    quiz_id: created.id,
+    order_index: index,
+    type: question.type,
+    weight: question.weight,
+    explanation: question.explanation,
+    stimulus_images: question.stimulus_images ?? [],
+    bank_item_id: question.bank_item_id ?? null,
+    bloom_level: question.bloom_level ?? null,
+    prompt: question.prompt,
+    options: question.options,
+    correct_answer: question.correct_answer,
+  }));
 
   // Sama seperti pembacaannya: kolom yang belum ada dibuang lalu ditulis ulang,
   // supaya remedial tetap jadi meski migrasinya belum jalan. Buangannya

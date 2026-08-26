@@ -9,7 +9,9 @@
     "lint": "eslint",
     "import:tka": "tsx scripts/import-tka.ts",
     "migrate:keluarga": "tsx scripts/migrate-family-accounts.ts",
-    "check:drift": "tsx scripts/check-drift.ts"
+    "check:drift": "tsx scripts/check-drift.ts",
+    "check:coverage": "tsx scripts/check-coverage.ts",
+    "migrate:gambar": "tsx scripts/migrate-gambar-ke-prompt.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

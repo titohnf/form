@@ -1,246 +1,133 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import type { CurriculumTopicGroup, QuestionBankItem, Subject } from "@/lib/types";
-import { bySubject, topicLabel } from "@/lib/curriculum";
-import { bloomSpread } from "@/lib/bloom";
-import BankItem from "./BankItem";
-import { NewItemDialog, NewItemInTopic } from "./NewItem";
-import TopicFilter from "./TopicFilter";
-import TopicPublicToggle from "./TopicPublicToggle";
+import type { CurriculumTopicGroup, Subject } from "@/lib/types";
+import { bySubject } from "@/lib/curriculum";
+import { fetchAllPages } from "@/lib/paginate";
+import { NewItemDialog } from "./NewItem";
+import { ImportGlobalDialog } from "./ImportDialog";
+import TopicTable, { type TopicRow } from "./TopicTable";
 
 /**
- * Sebaran taksonomi satu topik, mis. "C1 2 · C2 3 · C3 3 · C4 2".
+ * Bank Soal: daftar TOPIK, bukan daftar soal.
  *
- * Ditaruh di kepala topik yang masih tertutup karena di situlah pertanyaannya
- * muncul: sepuluh soal satu topik seharusnya menanjak C1→C4, dan ketimpangan
- * ("delapan-duanya berhenti di C1") tidak terlihat kalau harus dihitung dengan
- * membuka satu per satu.
- */
-function BloomSpread({ items }: { items: QuestionBankItem[] }) {
-  const { filled, unlabelled } = bloomSpread(items.map((item) => item.bloom_level));
-  if (filled.length === 0 && unlabelled === 0) return null;
-
-  return (
-    <span className="ml-1 font-normal text-gray-400">
-      {filled.map((level) => `${level.code} ${level.count}`).join(" · ")}
-      {unlabelled > 0 && (
-        <span className="text-amber-600">
-          {filled.length > 0 ? " · " : ""}
-          {unlabelled} tanpa level
-        </span>
-      )}
-    </span>
-  );
-}
-
-/**
- * Berapa soal satu topik yang sudah dibuka untuk pelanggan langganan.
+ * Dulu halaman ini membentangkan setiap soal sebagai kartu editor penuh,
+ * dikelompokkan per topik. Itu berarti membuka halaman depan berarti memuat
+ * seluruh korpus beserta isi tiap pertanyaannya — dan topik yang belum punya
+ * soal tidak dirender sama sekali, padahal justru topik itulah yang perlu
+ * diisi.
  *
- * Bersebelahan dengan sebaran Bloom, dan ada karena alasan yang sama: keadaan
- * yang cuma bisa diketahui dengan membuka semua kartunya sama saja dengan tidak
- * diketahui. Topik yang belum dibuka sama sekali tidak menampilkan apa-apa —
- * itu keadaan bawaan, dan menandainya di setiap baris hanya jadi derau.
+ * Sekarang barisnya topik, dan isinya baru dimuat di `[groupId]`. Yang diambil
+ * di sini cuma `id` dan `explanation` — cukup untuk menghitung kolomnya, tanpa
+ * menyeret satu pun teks pertanyaan.
  */
-function PublikSpread({ items }: { items: QuestionBankItem[] }) {
-  const publik = items.filter((item) => item.is_public === true).length;
-  if (publik === 0) return null;
-
-  return (
-    <span className="ml-1 font-normal text-green-700">
-      · {publik === items.length ? "semua" : publik} terbuka untuk langganan
-    </span>
-  );
-}
-
-export default async function BankPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ topic?: string }>;
-}) {
-  const { topic: topicFilter } = await searchParams;
+export default async function BankPage() {
   const supabase = await createClient();
 
-  // The taxonomy lives in Tera: subjects and curriculum topic groups are read
-  // here, never written. RLS admits admins only.
-  // Terlama di atas, terbaru di bawah — arah menulis, bukan arah linimasa. Soal
-  // dibuat sepuluh-sepuluh dalam satu topik, dan dengan urutan terbalik setiap
-  // soal baru melompat ke puncak daftar sementara tombol pembuatnya tertinggal
-  // di kaki, jadi tiap soal berikutnya menuntut satu gulungan panjang.
-  const { data: items } = await supabase
-    .from("question_bank_items")
-    .select("*")
-    .order("created_at", { ascending: true });
-
+  // Taksonomi hidup di Tera: mapel dan topik dibaca di sini, tidak pernah
+  // ditulis. RLS hanya mengizinkan admin.
   const { data: subjectRows } = await supabase.from("subjects").select("id, name").order("name");
   const { data: groupRows } = await supabase
     .from("curriculum_topic_groups")
     .select("id, subject_id, curriculum, grade_level, semester, theme, topic");
-  const { data: tags } = await supabase
-    .from("question_curriculum_tags")
-    .select("question_bank_item_id, group_id");
 
-  const typedItems = (items ?? []) as QuestionBankItem[];
+  // Ikut `explanation`: satu kolom teks per soal, jauh lebih murah daripada
+  // memuat pertanyaannya, dan tanpa itu tabel tidak bisa membedakan topik yang
+  // soalnya siap dipakai di Latihan Soal dari yang masih bisu saat dijawab.
+  const { rows: items, truncated } = await fetchAllPages<{
+    id: string;
+    explanation: string | null;
+  }>((from, to) =>
+    supabase
+      .from("question_bank_items")
+      .select("id, explanation")
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+
+  // Penandaan many-to-many, jadi barisnya lebih banyak daripada soalnya — kalau
+  // ini terpotong, topik yang sudah terisi tampil sebagai kosong dan orang akan
+  // mengisinya ulang.
+  const { rows: tags } = await fetchAllPages<{ question_bank_item_id: string; group_id: string }>(
+    (from, to) =>
+      supabase
+        .from("question_curriculum_tags")
+        .select("question_bank_item_id, group_id")
+        .order("question_bank_item_id", { ascending: true })
+        .order("group_id", { ascending: true })
+        .range(from, to),
+  );
+
   const typedGroups = (groupRows ?? []) as CurriculumTopicGroup[];
   const typedSubjects = (subjectRows ?? []) as Subject[];
-  const typedTags = (tags ?? []) as { question_bank_item_id: string; group_id: string }[];
-
   const subjects = bySubject(typedGroups, typedSubjects);
+  const itemById = new Map(items.map((i) => [i.id, i]));
 
-  const visibleItems = topicFilter
-    ? typedItems.filter((item) =>
-        typedTags.some((t) => t.question_bank_item_id === item.id && t.group_id === topicFilter),
-      )
-    : typedItems;
+  const idsByGroup = new Map<string, string[]>();
+  for (const t of tags) {
+    const list = idsByGroup.get(t.group_id);
+    if (list) list.push(t.question_bank_item_id);
+    else idsByGroup.set(t.group_id, [t.question_bank_item_id]);
+  }
 
-  const untagged = typedItems.filter(
-    (item) => !typedTags.some((t) => t.question_bank_item_id === item.id),
+  // Semua topik ikut, termasuk yang nol soal: barisnya inilah daftar kerjanya.
+  // Urutannya mengikuti `bySubject` supaya sama dengan halaman kurikulum Tera.
+  const rows: TopicRow[] = subjects.flatMap((subject) =>
+    subject.groups.map((group) => {
+      const own = (idsByGroup.get(group.id) ?? [])
+        .map((id) => itemById.get(id))
+        .filter((i) => i !== undefined);
+      return {
+        groupId: group.id,
+        subjectId: subject.subjectId,
+        subjectName: subject.subjectName,
+        grade: group.grade_level,
+        theme: group.theme,
+        topic: group.topic,
+        total: own.length,
+        withExplanation: own.filter((i) => (i.explanation ?? "").trim() !== "").length,
+      };
+    }),
   );
 
-  const idsForTopic = (groupId: string) =>
-    new Set(
-      typedTags.filter((t) => t.group_id === groupId).map((t) => t.question_bank_item_id),
-    );
-
-  // Dikelompokkan per topik, bukan satu daftar panjang: topiknya yang jadi
-  // pegangan saat menyusun remedial, dan satu soal boleh muncul di beberapa
-  // topik karena penandaannya memang many-to-many.
-  const sections = subjects
-    .map((subject) => ({
-      ...subject,
-      topics: subject.groups
-        .map((group) => {
-          const ids = idsForTopic(group.id);
-          return { group, items: visibleItems.filter((item) => ids.has(item.id)) };
-        })
-        .filter((t) => t.items.length > 0),
-    }))
-    .filter((s) => s.topics.length > 0);
-
-  const visibleUntagged = visibleItems.filter((item) =>
-    untagged.some((u) => u.id === item.id),
-  );
-
-  const publikCount = typedItems.filter((item) => item.is_public === true).length;
+  const taggedIds = new Set(tags.map((t) => t.question_bank_item_id));
+  const untagged = items.filter((i) => !taggedIds.has(i.id)).length;
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Latihan Soal</h1>
-        <NewItemDialog subjects={subjects} />
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold text-gray-900">Bank Soal</h1>
+        {/* Dua jalan masuk yang sama derajatnya: menulis satu soal, atau
+            memasukkan sekumpulan sekaligus dari CSV. Impor berdiri sebagai
+            tombol sekunder — ia yang lebih jarang dipakai, tapi ia yang
+            mengisi topik kosong dalam sekali jalan. */}
+        <div className="flex shrink-0 items-center gap-2">
+          <ImportGlobalDialog subjects={subjects} />
+          <NewItemDialog subjects={subjects} />
+        </div>
       </div>
 
-      <p className="text-sm text-gray-500">
-        Korpus soal bersama, dikelompokkan per topik kurikulum Tera. Soal di sini bisa dipakai ulang
-        di asesmen, remedial, atau try out mana pun, dan menjadi sumber soal latihan mandiri murid —
-        tapi hanya kalau topiknya sudah ditandai.
-        {untagged.length > 0 && (
-          <span className="text-amber-700"> {untagged.length} soal belum ditandai topik.</span>
-        )}
-      </p>
+      {truncated && (
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Korpusnya lebih besar dari yang bisa dimuat sekali jalan; sebagian soal belum ikut
+          terhitung. Jumlah di tabel ini bisa lebih kecil dari yang sebenarnya.
+        </p>
+      )}
 
-      {/* Bawaannya tertutup, jadi angka ini nol sampai ada yang membukanya satu
-          per satu. Ditaruh di puncak halaman supaya "kenapa pelanggan tidak
-          melihat apa-apa" punya jawaban yang terlihat, bukan yang harus dicari. */}
-      <p className="text-sm text-gray-500">
-        {publikCount === 0 ? (
-          <>Belum ada soal yang dibuka untuk pelanggan langganan Tera.</>
-        ) : (
-          <>
-            <span className="font-medium text-gray-900">{publikCount}</span> dari{" "}
-            {typedItems.length} soal terbuka untuk pelanggan langganan Tera.
-          </>
-        )}
-      </p>
+      {/* Soal tanpa topik tidak punya baris di tabel — tabelnya disusun dari
+          taksonomi, bukan dari soalnya. Tanpa pintu ini mereka tidak terjangkau
+          dari mana pun, dan mereka tidak akan pernah sampai ke murid. */}
+      {untagged > 0 && (
+        <Link
+          href="/dashboard/bank/tanpa-topik"
+          className="block rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 transition-colors hover:bg-amber-100"
+        >
+          <span className="font-medium">{untagged} soal belum ditandai topik</span> — soal seperti
+          ini tidak akan pernah muncul di Latihan Soal murid. Buka untuk menandainya →
+        </Link>
+      )}
 
-      <TopicFilter subjects={subjects} value={topicFilter ?? ""} />
-
-      <div className="flex flex-col gap-5">
-        {visibleItems.length === 0 && (
-          <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-gray-500">
-              {typedItems.length === 0
-                ? "Latihan soal masih kosong. Buat soal baru di sini, atau pakai tombol “Simpan ke Latihan Soal” di editor paket soal."
-                : "Belum ada soal di topik itu."}
-            </p>
-            {/* Topik kosong tidak punya bagiannya sendiri untuk ditumpangi
-                tombol, jadi tombolnya menempel di pesan kosongnya. */}
-            {topicFilter && <NewItemInTopic groupId={topicFilter} />}
-          </div>
-        )}
-
-        {/* Soal tanpa topik ditaruh paling atas, bukan di kaki halaman: soal
-            seperti ini tidak pernah sampai ke murid, jadi ia butuh perhatian
-            lebih dulu, bukan disembunyikan di bawah puluhan topik. */}
-        {visibleUntagged.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold tracking-widest text-amber-700 uppercase">
-              Belum ditandai topik
-            </h2>
-            {/* Tertutup: sekarang letaknya di atas, jadi membentangkan beberapa
-                editor penuh di sini akan mendorong seluruh daftar topik keluar
-                layar. Judul amber dan jumlahnya sudah cukup memanggil. */}
-            <details className="rounded-2xl border border-amber-200 bg-white p-5">
-              <summary className="cursor-pointer text-sm font-medium text-gray-900">
-                Tanpa topik{" "}
-                <span className="font-normal text-gray-400">({visibleUntagged.length} soal)</span>
-              </summary>
-              <p className="mt-2 text-sm text-gray-500">
-                Soal-soal ini tidak akan pernah muncul di latihan mandiri murid sampai topiknya
-                ditandai.
-              </p>
-              <div className="mt-4 flex flex-col gap-5">
-                {visibleUntagged.map((item) => (
-                  <div key={item.id} id={`soal-${item.id}`} className="scroll-mt-6">
-                    <BankItem item={item} subjects={subjects} initialTaggedIds={[]} />
-                  </div>
-                ))}
-              </div>
-            </details>
-          </section>
-        )}
-
-        {sections.map((subject) => (
-          <section key={subject.subjectId} className="space-y-3">
-            <h2 className="text-xs font-semibold tracking-widest text-gray-500 uppercase">
-              {subject.subjectName}
-            </h2>
-            {subject.topics.map(({ group, items }) => (
-              <details
-                key={group.id}
-                className="rounded-2xl border border-slate-200 bg-white p-5"
-                // Topik terbuka kalau memang sedang disaring — kalau tidak,
-                // membuka satu-satunya hasil filter jadi pekerjaan ekstra.
-                open={topicFilter === group.id}
-              >
-                <summary className="cursor-pointer text-sm font-medium text-gray-900">
-                  {topicLabel(group)}{" "}
-                  <span className="font-normal text-gray-400">({items.length} soal)</span>
-                  <BloomSpread items={items} />
-                  <PublikSpread items={items} />
-                </summary>
-                <div className="mt-4 flex flex-col gap-5">
-                  <TopicPublicToggle
-                    groupId={group.id}
-                    total={items.length}
-                    publik={items.filter((item) => item.is_public === true).length}
-                  />
-                  {items.map((item) => (
-                    <div key={item.id} id={`soal-${item.id}`} className="scroll-mt-6">
-                      <BankItem
-                        item={item}
-                        subjects={subjects}
-                        initialTaggedIds={typedTags
-                          .filter((t) => t.question_bank_item_id === item.id)
-                          .map((t) => t.group_id)}
-                      />
-                    </div>
-                  ))}
-                  <NewItemInTopic groupId={group.id} />
-                </div>
-              </details>
-            ))}
-          </section>
-        ))}
-      </div>
+      <TopicTable rows={rows} />
     </div>
   );
 }

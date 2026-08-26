@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import type { QuestionBankItem } from "@/lib/types";
 import { MathText } from "@/lib/latex";
+import { ringkasIsiSoal } from "@/lib/isi-soal";
+import { SearchInput } from "@/lib/SearchFilter";
 
 export interface BankTopicGroup {
   id: string;
@@ -12,7 +14,7 @@ export interface BankTopicGroup {
 }
 
 /**
- * Pemilih soal dari Latihan Soal: centang beberapa sekaligus, dikelompokkan
+ * Pemilih soal dari Bank Soal: centang beberapa sekaligus, dikelompokkan
  * per topik.
  *
  * Sebelumnya satu dropdown dan satu tombol — satu soal per klik, tiap klik
@@ -99,18 +101,16 @@ export default function QuestionBankPicker({
         onClick={() => setOpen((v) => !v)}
         className="w-full rounded-xl border border-dashed border-slate-300 bg-white py-3 text-sm font-medium text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-700"
       >
-        {open ? "Tutup Latihan Soal" : `+ Ambil dari Latihan Soal (${availableCount} tersedia)`}
+        {open ? "Tutup Bank Soal" : `+ Ambil dari Bank Soal (${availableCount} tersedia)`}
       </button>
 
       {open && (
         <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-          <input
-            type="search"
+          <SearchInput
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={setQuery}
             placeholder="Cari isi soal…"
-            aria-label="Cari soal di Latihan Soal"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            label="Cari soal di Bank Soal"
           />
 
           <div className="mt-3 max-h-96 space-y-3 overflow-y-auto pr-1">
@@ -169,7 +169,9 @@ export default function QuestionBankPicker({
                             />
                             <span className={`min-w-0 flex-1 ${isAdded ? "text-gray-400" : "text-gray-700"}`}>
                               <span className="line-clamp-2 block">
-                                <MathText text={item.prompt || "(soal tanpa pertanyaan)"} />
+                                <MathText
+                                  text={ringkasIsiSoal(item.prompt) || "(soal tanpa pertanyaan)"}
+                                />
                               </span>
                               {isAdded && (
                                 <span className="text-xs text-gray-400">sudah ada di paket ini</span>

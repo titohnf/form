@@ -1,60 +1,41 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { useFormStatus } from "react-dom";
-import { createBankItem } from "./actions";
 import type { SubjectTopics } from "./BankItem";
 import { Modal, TopicPicker } from "./TopicPicker";
 
 /**
- * Tombol submit yang menunjukkan kliknya masuk. Tanpa ini tombolnya diam total
- * selama server action berjalan, dan tombol yang diam terbaca sebagai tombol
- * yang rusak.
+ * Jalan ke soal baru: sebuah TAUTAN, bukan formulir.
+ *
+ * Menekannya tidak lagi menyisipkan apa pun ke bank — ia cuma membuka halaman
+ * draf. Barisnya baru lahir saat draf itu disimpan, jadi berubah pikiran di
+ * tengah jalan tidak meninggalkan soal kosong yang harus dibersihkan orang
+ * lain.
+ *
+ * `compact` untuk yang duduk di kepala halaman yang gelap; yang di kaki daftar
+ * tetap melebar, karena di sana ia sekaligus penanda daftarnya sudah habis.
  */
-function SubmitButton({
-  className,
-  idle,
-  busy,
-  disabled,
-}: {
-  className: string;
-  idle: string;
-  busy: string;
-  disabled?: boolean;
-}) {
-  const { pending } = useFormStatus();
+export function NewItemInTopic({ groupId, compact }: { groupId: string; compact?: boolean }) {
   return (
-    <button
-      type="submit"
-      disabled={pending || disabled}
-      className={`${className} disabled:opacity-60`}
+    <Link
+      href={`/dashboard/bank/soal/baru?dari=${groupId}`}
+      className={
+        compact
+          ? "rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100"
+          : "block w-full rounded-xl border border-dashed border-slate-300 bg-white py-3 text-center text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700"
+      }
     >
-      {pending ? busy : idle}
-    </button>
+      {compact ? "+ Soal Baru" : "+ Soal Baru di topik ini"}
+    </Link>
   );
 }
 
 /**
- * Tombol pembuat soal di dalam satu topik: kamarnya tersirat dari tempat
- * mengklik, jadi tidak ada yang perlu ditanyakan.
- */
-export function NewItemInTopic({ groupId }: { groupId: string }) {
-  return (
-    <form action={createBankItem}>
-      <input type="hidden" name="group" value={groupId} />
-      <SubmitButton
-        className="w-full rounded-xl border border-dashed border-slate-300 bg-white py-3 text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700"
-        idle="+ Soal Baru di topik ini"
-        busy="Membuat…"
-      />
-    </form>
-  );
-}
-
-/**
- * Tombol di header, untuk topik yang belum punya soal sama sekali: topik seperti
- * itu tidak dirender di daftar, jadi tombol per-topik tidak bisa menjangkaunya.
- * Pemilihnya memuat seluruh topik, bukan hanya yang terpakai.
+ * Tombol di header halaman depan, untuk topik yang belum punya soal sama
+ * sekali: topik seperti itu tidak punya baris untuk diklik, jadi tombol
+ * per-topik tidak bisa menjangkaunya. Pemilihnya memuat seluruh topik, bukan
+ * hanya yang terpakai.
  */
 export function NewItemDialog({ subjects }: { subjects: SubjectTopics[] }) {
   const [open, setOpen] = useState(false);
@@ -82,7 +63,7 @@ export function NewItemDialog({ subjects }: { subjects: SubjectTopics[] }) {
           description="Soal disimpan per kelas dan topik. Topik lain bisa ditambahkan nanti dari kartu soalnya."
           onClose={close}
         >
-          <form action={createBankItem} className="mt-4 flex flex-col gap-4">
+          <div className="mt-4 flex flex-col gap-4">
             <TopicPicker
               subjects={subjects}
               value={groupId}
@@ -99,14 +80,23 @@ export function NewItemDialog({ subjects }: { subjects: SubjectTopics[] }) {
               >
                 Batal
               </button>
-              <SubmitButton
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                idle="Buat Soal"
-                busy="Membuat…"
-                disabled={!groupId}
-              />
+              {/* Tautan yang dimatikan selama topiknya belum dipilih, bukan
+                  tombol kirim: yang dituju halaman draf, dan tidak ada apa pun
+                  yang dikirim ke server di langkah ini. */}
+              {groupId ? (
+                <Link
+                  href={`/dashboard/bank/soal/baru?dari=${groupId}`}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                >
+                  Tulis Soal
+                </Link>
+              ) : (
+                <span className="cursor-not-allowed rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white opacity-60">
+                  Tulis Soal
+                </span>
+              )}
             </div>
-          </form>
+          </div>
         </Modal>
       )}
     </>

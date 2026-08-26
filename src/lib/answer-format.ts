@@ -1,4 +1,5 @@
 import type { Question, StatementGridOptions } from "@/lib/types";
+import { ringkasIsiSoal } from "@/lib/isi-soal";
 
 /**
  * Renders a stored response as text for the tutor-facing screens (hasil, live
@@ -45,4 +46,19 @@ export function formatResponse(
       if (typeof response === "object") return JSON.stringify(response);
       return String(response);
   }
+}
+
+/**
+ * Jawaban murid untuk layar tutor yang cuma punya satu baris — live monitoring,
+ * daftar koreksi. Sejak pilihan jawaban boleh berupa gambar atau tabel, jawaban
+ * yang tersimpan bisa berupa penanda `[gambar: …]` sepanjang satu baris penuh;
+ * di sini ia diringkas, dan pilihan yang isinya cuma gambar disebut apa adanya
+ * ketimbang tampil sebagai baris kosong.
+ */
+export function jawabanRingkas(
+  question: Pick<Question, "type" | "options">,
+  response: unknown,
+): string {
+  const penuh = formatResponse(question, response);
+  return ringkasIsiSoal(penuh) || (penuh.includes("[gambar:") ? "(pilihan bergambar)" : penuh);
 }

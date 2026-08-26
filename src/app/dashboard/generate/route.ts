@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
 
+/**
+ * Merakit soal dari materi (teks atau PDF) — dipakai bersama oleh editor paket
+ * dan Bank Soal.
+ *
+ * Dulu route ini duduk di `quizzes/[id]/edit/generate` padahal tidak pernah
+ * menyentuh `id`-nya: masukannya cuma materi dan jumlah, keluarannya soal
+ * lepas. Bank Soal butuh yang sama persis, dan menaruhnya di bawah satu
+ * paket berarti pemanggil kedua harus mengarang id paket yang tidak ada
+ * hubungannya.
+ */
+
 export interface GeneratedQuestion {
   prompt: string;
   choices: string[];
@@ -20,6 +31,9 @@ export async function POST(request: Request) {
   const textInput = String(formData.get("text") ?? "").trim();
   const file = formData.get("file") as File | null;
   const count = Math.min(Math.max(Number(formData.get("count")) || 5, 1), 10);
+  // Opsional: dipakai Bank Soal, yang selalu merakit di dalam satu topik.
+  // Editor paket tidak mengirimnya — di sana materinya sendiri yang jadi batas.
+  const topic = String(formData.get("topic") ?? "").trim();
 
   let material = textInput;
   if (file && file.size > 0) {
@@ -39,7 +53,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Materi (teks atau PDF) belum diisi." }, { status: 400 });
   }
 
-  const prompt = `Buat ${count} soal pilihan ganda (satu jawaban benar) berbahasa Indonesia berdasarkan materi di bawah ini. Balas HANYA dengan JSON array valid, tanpa teks lain, format persis:
+  const prompt = `Buat ${count} soal pilihan ganda (satu jawaban benar) berbahasa Indonesia berdasarkan materi di bawah ini.${
+    topic ? ` Semua soal harus berada di dalam topik "${topic}"; abaikan bagian materi yang di luar topik itu.` : ""
+  } Balas HANYA dengan JSON array valid, tanpa teks lain, format persis:
 [{"prompt": "...", "choices": ["...", "...", "...", "..."], "correct_answer": "...", "weight": 1}]
 "correct_answer" harus sama persis (character-for-character) dengan salah satu isi "choices".
 

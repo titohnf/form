@@ -1,18 +1,24 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { missingColumn, without } from "@/lib/missing-column";
 import type { QuestionPatch } from "@/lib/types";
+import type { ImportedItem } from "@/lib/question-import";
 
 /** Kolom yang menyusul lewat migrasi; boleh belum ada saat kode ini berjalan. */
-const OPTIONAL_COLUMNS = ["bloom_level", "template"];
+const OPTIONAL_COLUMNS = ["bloom_level"];
 
 /**
- * Autosave target for a bank item, mirroring `saveQuestion` for quiz questions.
- * `branching` is dropped: it points at sibling questions inside one quiz, which
- * a reusable bank item has none of.
+ * Menyimpan suntingan satu soal bank.
+ *
+ * Dipanggil sekali, saat tombol "Simpan perubahan" ditekan — bukan tiap
+ * ketikan. Editornya menahan suntingan di ingatan halaman sampai saat itu,
+ * supaya tombol Simpan benar-benar menyimpan dan tombol Batal benar-benar
+ * membatalkan.
+ *
+ * `branching` dibuang: ia menunjuk sesama soal di dalam satu paket, dan soal
+ * bank tidak punya itu.
  */
 export async function saveBankItem(itemId: string, patch: QuestionPatch) {
   const supabase = await createClient();
@@ -28,122 +34,139 @@ export async function saveBankItem(itemId: string, patch: QuestionPatch) {
       .eq("id", itemId);
 
     const missing = missingColumn(error, OPTIONAL_COLUMNS);
-    if (!missing) return;
+    if (!missing) {
+      // Sekali simpan, sekali segarkan: daftar topik dan halaman soalnya sama-
+      // sama menampilkan isi yang barusan berubah. Dulu ini tidak boleh ada —
+      // menyegarkan server tiap ketikan membuat editor berkedip.
+      revalidatePath("/dashboard/bank", "layout");
+      return;
+    }
     dropped.push(missing);
   }
 }
 
 /**
- * Membuat satu soal kosong di dalam satu topik. Topiknya wajib: soal tanpa topik
- * tidak pernah muncul di latihan mandiri murid, jadi menanyakannya belakangan
- * hanya menumpuk soal yang tak terpakai. Penandaan many-to-many-nya tetap bisa
- * ditambah dari kartunya nanti — yang diminta di sini cuma kamar pertamanya.
+ * Menyimpan draf soal pertama kalinya.
  *
- * `group` datang dari FormData supaya satu action ini melayani dua pemanggil:
- * tombol di dalam tiap topik (topik tersirat dari tempat mengklik) dan dialog
- * di header (untuk topik yang belum punya soal sama sekali, yang karena itu
- * tidak dirender di daftar).
+ * Barisnya baru lahir di sini, bukan saat tombol "+ Soal Baru" ditekan. Dulu
+ * tombol itu langsung menyisipkan soal kosong lalu memindahkan orang ke
+ * editornya; siapa pun yang berubah pikiran — menutup tab, menekan Batal,
+ * salah klik — meninggalkan satu baris "Pertanyaan masih kosong" di topiknya,
+ * dan yang menemukannya belakangan tidak pernah tahu itu sisa siapa. Draf yang
+ * ditinggalkan sekarang tidak meninggalkan apa-apa.
+ *
+ * Topiknya wajib: soal tanpa topik tidak pernah muncul di Latihan Soal murid.
  */
-export async function createBankItem(formData: FormData) {
-  const groupId = String(formData.get("group") ?? "").trim();
-  if (!groupId) return;
+export async function simpanSoalBaru(groupId: string, patch: QuestionPatch) {
+  if (!groupId) throw new Error("Topiknya belum ditentukan.");
+  if (!patch.prompt.trim()) throw new Error("Pertanyaannya masih kosong.");
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) throw new Error("Sesi kamu sudah berakhir. Masuk lagi, lalu simpan ulang.");
 
-  // Blank, like a new quiz question: a placeholder only has to be deleted again.
-  const { data: created } = await supabase
-    .from("question_bank_items")
-    .insert({
-      created_by: user.id,
-      type: "mcq_single",
-      prompt: "",
-      options: { choices: ["", ""] },
-      correct_answer: "",
-      weight: 1,
-    })
-    .select("id")
-    .single();
-  if (!created) return;
+  const { branching: _branching, ...isi } = patch;
+  void _branching;
 
-  await supabase
+  // Kolom yang menyusul lewat migrasi dibuang satu per satu kalau belum ada,
+  // sama seperti `saveBankItem`.
+  const dibuang: string[] = [];
+  let created: { id: string } | null = null;
+  for (let percobaan = 0; percobaan <= OPTIONAL_COLUMNS.length; percobaan += 1) {
+    const { data, error } = await supabase
+      .from("question_bank_items")
+      .insert(without({ ...isi, created_by: user.id }, dibuang))
+      .select("id")
+      .single();
+
+    if (!error) {
+      created = data;
+      break;
+    }
+    const hilang = missingColumn(error, OPTIONAL_COLUMNS);
+    if (!hilang) throw new Error(error.message);
+    dibuang.push(hilang);
+  }
+  if (!created) throw new Error("Soalnya gagal disimpan.");
+
+  const { error: tagError } = await supabase
     .from("question_curriculum_tags")
     .insert({ question_bank_item_id: created.id, group_id: groupId });
+  if (tagError) {
+    throw new Error(
+      `Soalnya tersimpan tapi topiknya gagal ditandai: ${tagError.message}. ` +
+        "Cari di bagian “Belum ditandai topik”.",
+    );
+  }
 
   revalidatePath("/dashboard/bank");
-  // Disaring ke topiknya supaya bagian itu terbuka — anchor tidak bisa menggulir
-  // ke dalam <details> yang tertutup — dan supaya soal barunya jadi satu-satunya
-  // hal di layar, bukan kartu ke sekian di kaki halaman.
-  redirect(`/dashboard/bank?topic=${groupId}#soal-${created.id}`);
+  revalidatePath(`/dashboard/bank/${groupId}`);
+  return created.id;
 }
 
 /**
- * Membuka atau menutup satu soal untuk pelanggan langganan Tera.
+ * Menyimpan soal hasil impor CSV ke satu topik.
  *
- * Sakelarnya di sini, bukan di admin Tera, karena inilah tempat soalnya
- * disusun: keputusan "boleh keluar dari lingkungan bimbel atau tidak" diambil
- * sambil membaca soalnya, bukan dari daftar judul di aplikasi lain.
- *
- * Per SOAL, bukan per topik. Penandaan soal ke topik bersifat many-to-many,
- * jadi penanda di tingkat topik akan membuat soal privat yang kebetulan
- * di-tag ke topik terbuka ikut terbuka tanpa ada yang memutuskan — gagal
- * terbuka. Per soal gagal tertutup.
- *
- * Kalau kolomnya belum ada (migrasi 110 di repo Tera belum dijalankan),
- * fungsinya diam saja alih-alih melempar galat: yang gagal cuma fitur ini,
- * bukan penyuntingan soal yang sedang dikerjakan orangnya. Pola yang sama
- * dipakai `saveBankItem` untuk `bloom_level` dan `template`.
+ * Barisnya sudah divalidasi di klien sebelum sampai ke sini; yang dikirim cuma
+ * yang bersih. Insert-nya sekali jalan supaya 200 soal tidak jadi 200 perjalanan.
  */
-export async function setBankItemPublic(itemId: string, isPublic: boolean) {
+export async function addImportedBankItems(groupId: string, items: ImportedItem[]) {
+  if (!groupId || items.length === 0) return 0;
+
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("question_bank_items")
-    .update({ is_public: isPublic })
-    .eq("id", itemId);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return 0;
 
-  if (error && !missingColumn(error, ["is_public"])) throw error;
-  revalidatePath("/dashboard/bank");
-}
+  // `bloom_level` menyusul lewat migrasi; kalau kolomnya belum ada, soalnya
+  // tetap masuk tanpa level alih-alih seluruh impor gagal.
+  const baris = items.map((q) => ({
+    created_by: user.id,
+    type: q.type,
+    prompt: q.prompt,
+    options: q.options,
+    correct_answer: q.correct_answer,
+    weight: q.weight,
+    explanation: q.explanation,
+    bloom_level: q.bloom_level,
+  }));
 
-/**
- * Membuka atau menutup seluruh soal dalam satu topik sekaligus.
- *
- * Menandai satu per satu dari ratusan soal tidak akan pernah dikerjakan siapa
- * pun, jadi keputusan awalnya hampir selalu diambil per topik. Yang DISIMPAN
- * tetap per soal — soal baru yang ditandai ke topik yang sudah dibuka tidak
- * ikut terbuka sendiri, dan itu memang yang diinginkan.
- *
- * Satu soal bisa bertanda beberapa topik, jadi menutup topik A ikut menutup
- * soal yang juga milik topik B. Karena itu kepala tiap topik menampilkan
- * hitungan terbukanya: akibat di tempat lain harus terlihat, bukan mengejutkan.
- */
-export async function setTopicPublic(groupId: string, isPublic: boolean) {
-  const supabase = await createClient();
+  let created: { id: string }[] | null = null;
+  for (const kolomDibuang of [[] as string[], ["bloom_level"]]) {
+    const { data, error } = await supabase
+      .from("question_bank_items")
+      .insert(baris.map((b) => without({ ...b }, kolomDibuang)))
+      .select("id");
+    if (!error) {
+      created = data;
+      break;
+    }
+    if (!missingColumn(error, ["bloom_level"])) throw new Error(error.message);
+  }
+  if (!created?.length) return 0;
 
-  const { data: tags } = await supabase
+  const { error: tagError } = await supabase
     .from("question_curriculum_tags")
-    .select("question_bank_item_id")
-    .eq("group_id", groupId);
+    .insert(created.map((row) => ({ question_bank_item_id: row.id, group_id: groupId })));
+  if (tagError) {
+    throw new Error(
+      `${created.length} soal tersimpan tapi topiknya gagal ditandai: ${tagError.message}. ` +
+        "Cari di bagian “Belum ditandai topik”.",
+    );
+  }
 
-  const ids = (tags ?? []).map((t) => t.question_bank_item_id as string);
-  if (ids.length === 0) return;
-
-  const { error } = await supabase
-    .from("question_bank_items")
-    .update({ is_public: isPublic })
-    .in("id", ids);
-
-  if (error && !missingColumn(error, ["is_public"])) throw error;
   revalidatePath("/dashboard/bank");
+  revalidatePath(`/dashboard/bank/${groupId}`);
+  return created.length;
 }
 
 export async function deleteBankItem(itemId: string) {
   const supabase = await createClient();
   await supabase.from("question_bank_items").delete().eq("id", itemId);
-  revalidatePath("/dashboard/bank");
+  revalidatePath("/dashboard/bank", "layout");
 }
 
 /**
@@ -165,5 +188,7 @@ export async function toggleQuestionTopic(itemId: string, groupId: string, tagge
       .eq("question_bank_item_id", itemId)
       .eq("group_id", groupId);
   }
-  revalidatePath("/dashboard/bank");
+  // Segmennya: menandai satu soal memindahkannya keluar dari "Belum ditandai
+  // topik" sekaligus mengubah hitungan di tabel, bukan cuma topik yang diklik.
+  revalidatePath("/dashboard/bank", "layout");
 }
