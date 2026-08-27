@@ -35,11 +35,42 @@ export function topicTrail(group: CurriculumTopicGroup, subjectName?: string | n
   return [group.grade_level, subjectName, group.theme, group.topic].filter(Boolean).join(" · ");
 }
 
+/**
+ * Letak tiap topik di dalam kurikulumnya, dibaca dari `curriculum_topics`.
+ *
+ * `curriculum_topic_groups` tidak punya kolom urutan — yang menyimpannya
+ * `curriculum_topics`, tabel datar tempat satu topik adalah SEKUMPULAN baris CP
+ * yang berbagi `group_id` (Tera, migrasi 060). Yang dipakai `sort_order`
+ * terkecil di antara mereka: tempat topiknya muncul pertama kali.
+ *
+ * Angkanya berulang dari nol di tiap kelas, jadi ia tidak pernah dipakai
+ * sendirian — selalu sesudah kelas dan semester diadu (lihat `bySubject`).
+ */
+export function urutanKurikulum(
+  rows: { group_id: string | null; sort_order: number | null }[],
+): Map<string, number> {
+  const urutan = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.group_id || r.sort_order == null) continue;
+    const ada = urutan.get(r.group_id);
+    if (ada == null || r.sort_order < ada) urutan.set(r.group_id, r.sort_order);
+  }
+  return urutan;
+}
+
 /** Groups topics by subject, each list ordered the way Tera's curriculum page orders them. */
 export function bySubject(
   groups: CurriculumTopicGroup[],
   subjects: { id: string; name: string }[],
+  /**
+   * Urutan kurikulum dari `urutanKurikulum()`. Tanpa ini daftarnya jatuh ke
+   * abjad tema lalu topik — masih tertib, tapi bukan urutan yang diajarkan:
+   * "Aljabar" mendahului "Bilangan" karena huruf A, padahal Bilangan lebih
+   * dulu. Topik yang tidak ada di peta turun ke bawah kelasnya, bukan hilang.
+   */
+  urutan?: Map<string, number>,
 ): { subjectId: string; subjectName: string; groups: CurriculumTopicGroup[] }[] {
+  const letak = (g: CurriculumTopicGroup) => urutan?.get(g.id) ?? Number.MAX_SAFE_INTEGER;
   return subjects
     .map((subject) => ({
       subjectId: subject.id,
@@ -53,6 +84,7 @@ export function bySubject(
             // tampil dengan kelas yang teracak.
             a.grade_level.localeCompare(b.grade_level, "id", { numeric: true }) ||
             a.semester - b.semester ||
+            letak(a) - letak(b) ||
             (a.theme ?? "").localeCompare(b.theme ?? "", "id") ||
             a.topic.localeCompare(b.topic, "id"),
         ),

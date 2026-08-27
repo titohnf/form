@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { CurriculumTopicGroup, Subject } from "@/lib/types";
-import { bySubject } from "@/lib/curriculum";
+import { bySubject, urutanKurikulum } from "@/lib/curriculum";
 import { fetchAllPages } from "@/lib/paginate";
 import { NewItemDialog } from "./NewItem";
 import { ImportGlobalDialog } from "./ImportDialog";
@@ -29,6 +29,22 @@ export default async function BankPage() {
   const { data: groupRows } = await supabase
     .from("curriculum_topic_groups")
     .select("id, subject_id, curriculum, grade_level, semester, theme, topic");
+
+  // Urutan kurikulumnya, yang hanya ada di `curriculum_topics` — tabel datar
+  // dengan satu baris per CP, jadi barisnya jauh lebih banyak daripada
+  // topiknya dan pagination-nya bukan kehati-hatian yang berlebihan. Kalau ini
+  // terpotong, sebagian topik kehilangan urutan dan turun ke bawah kelasnya:
+  // tertib, tapi bukan urutan yang diajarkan.
+  const { rows: cpRows } = await fetchAllPages<{
+    group_id: string | null;
+    sort_order: number | null;
+  }>((from, to) =>
+    supabase
+      .from("curriculum_topics")
+      .select("group_id, sort_order")
+      .order("group_id", { ascending: true })
+      .range(from, to),
+  );
 
   // Ikut `explanation`: satu kolom teks per soal, jauh lebih murah daripada
   // memuat pertanyaannya, dan tanpa itu tabel tidak bisa membedakan topik yang
@@ -60,7 +76,7 @@ export default async function BankPage() {
 
   const typedGroups = (groupRows ?? []) as CurriculumTopicGroup[];
   const typedSubjects = (subjectRows ?? []) as Subject[];
-  const subjects = bySubject(typedGroups, typedSubjects);
+  const subjects = bySubject(typedGroups, typedSubjects, urutanKurikulum(cpRows));
   const itemById = new Map(items.map((i) => [i.id, i]));
 
   const idsByGroup = new Map<string, string[]>();
