@@ -11,7 +11,9 @@
     "migrate:keluarga": "tsx scripts/migrate-family-accounts.ts",
     "check:drift": "tsx scripts/check-drift.ts",
     "check:coverage": "tsx scripts/check-coverage.ts",
-    "migrate:gambar": "tsx scripts/migrate-gambar-ke-prompt.ts"
+    "migrate:gambar": "tsx scripts/migrate-gambar-ke-prompt.ts",
+    "backup:soal": "tsx scripts/backup-soal.ts",
+    "wipe:soal": "tsx scripts/wipe-soal.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
