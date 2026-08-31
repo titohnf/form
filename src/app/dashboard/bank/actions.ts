@@ -6,9 +6,10 @@ import { missingColumn, without } from "@/lib/missing-column";
 import type { QuestionPatch } from "@/lib/types";
 import type { ImportedItem } from "@/lib/question-import";
 import { KOLOM_METADATA, type MetadataPengukuran } from "@/lib/metadata-pengukuran";
+import type { ItemJson } from "@/lib/soal-json";
 
 /** Kolom yang menyusul lewat migrasi; boleh belum ada saat kode ini berjalan. */
-const OPTIONAL_COLUMNS = ["bloom_level", ...KOLOM_METADATA];
+const OPTIONAL_COLUMNS = ["bloom_level", "peruntukan", ...KOLOM_METADATA];
 
 /**
  * Menyimpan suntingan satu soal bank.
@@ -120,12 +121,18 @@ export async function simpanSoalBaru(groupId: string, patch: QuestionPatch) {
 }
 
 /**
- * Menyimpan soal hasil impor CSV ke satu topik.
+ * Menyimpan soal hasil impor ke satu topik — dari CSV maupun JSON.
  *
  * Barisnya sudah divalidasi di klien sebelum sampai ke sini; yang dikirim cuma
  * yang bersih. Insert-nya sekali jalan supaya 200 soal tidak jadi 200 perjalanan.
+ *
+ * Butir masuk sebagai `draf`, sama seperti yang ditulis manual: tidak ada jalur
+ * impor yang boleh memintas alur verifikasi.
  */
-export async function addImportedBankItems(groupId: string, items: ImportedItem[]) {
+export async function addImportedBankItems(
+  groupId: string,
+  items: (ImportedItem & Partial<ItemJson>)[],
+) {
   if (!groupId || items.length === 0) return 0;
 
   const supabase = await createClient();
@@ -134,8 +141,8 @@ export async function addImportedBankItems(groupId: string, items: ImportedItem[
   } = await supabase.auth.getUser();
   if (!user) return 0;
 
-  // `bloom_level` menyusul lewat migrasi; kalau kolomnya belum ada, soalnya
-  // tetap masuk tanpa level alih-alih seluruh impor gagal.
+  // Metadata pengukuran hanya terisi untuk impor JSON; impor CSV tidak
+  // membawanya, dan `undefined` di sini tidak ikut terkirim ke database.
   const baris = items.map((q) => ({
     created_by: user.id,
     type: q.type,
@@ -145,19 +152,33 @@ export async function addImportedBankItems(groupId: string, items: ImportedItem[
     weight: q.weight,
     explanation: q.explanation,
     bloom_level: q.bloom_level,
+    penjelasan_per_opsi: q.penjelasan_per_opsi,
+    pola_solo: q.pola_solo,
+    elemen_proses: q.elemen_proses,
+    label_kategori: q.label_kategori,
+    sumber_pembuatan: q.sumber_pembuatan,
+    peruntukan: q.peruntukan,
+    topik_id: q.topik_id,
   }));
 
+  // Kolom yang menyusul lewat migrasi dibuang satu per satu kalau belum ada,
+  // menumpuk seperti di `saveBankItem` — sebuah lingkungan bisa tertinggal
+  // lebih dari satu migrasi, dan mencoba sekali per kolom tidak akan pernah
+  // sampai ke kombinasi yang benar.
   let created: { id: string }[] | null = null;
-  for (const kolomDibuang of [[] as string[], ["bloom_level"]]) {
+  const dibuang: string[] = [];
+  for (let percobaan = 0; percobaan <= OPTIONAL_COLUMNS.length; percobaan += 1) {
     const { data, error } = await supabase
       .from("question_bank_items")
-      .insert(baris.map((b) => without({ ...b }, kolomDibuang)))
+      .insert(baris.map((b) => without({ ...b }, dibuang)))
       .select("id");
     if (!error) {
       created = data;
       break;
     }
-    if (!missingColumn(error, ["bloom_level"])) throw new Error(error.message);
+    const hilang = missingColumn(error, OPTIONAL_COLUMNS);
+    if (!hilang) throw new Error(error.message);
+    dibuang.push(hilang);
   }
   if (!created?.length) return 0;
 

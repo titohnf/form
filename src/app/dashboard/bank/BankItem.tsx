@@ -136,6 +136,7 @@ export default function BankItem({
   // ia bagian dari menulis butir, bukan pernyataan tentang butir. Karena itu ia
   // ikut menandai kartu "kotor" saat diubah.
   const metaAwal: Metadata = {
+    topik_id: item.topik_id ?? null,
     penjelasan_per_opsi: item.penjelasan_per_opsi ?? null,
     pola_solo: item.pola_solo ?? null,
     elemen_proses: item.elemen_proses ?? null,

@@ -88,6 +88,13 @@ export type SumberPembuatan = (typeof SUMBER_PEMBUATAN)[number]["value"];
 export type PenjelasanPerOpsi = Record<string, string>;
 
 export interface MetadataPengukuran {
+  /**
+   * Topik pengukuran yang diukur butir ini — tepat satu, atau null untuk butir
+   * di luar peta kompetensi. Ini bukan sekadar metadata melainkan identitas
+   * ukurnya: tanpa ini butir tidak ikut menghitung penguasaan apa pun. Lihat
+   * migrasi tera 144 untuk alasan ia kolom dan bukan tabel.
+   */
+  topik_id: string | null;
   penjelasan_per_opsi: PenjelasanPerOpsi | null;
   pola_solo: PolaSolo | null;
   elemen_proses: ElemenProses[] | null;
@@ -97,6 +104,7 @@ export interface MetadataPengukuran {
 
 /** Nilai awal untuk butir yang kolomnya masih kosong. */
 export const METADATA_KOSONG: MetadataPengukuran = {
+  topik_id: null,
   penjelasan_per_opsi: null,
   pola_solo: null,
   elemen_proses: null,
@@ -106,6 +114,7 @@ export const METADATA_KOSONG: MetadataPengukuran = {
 
 /** Kolom metadata yang boleh belum ada saat kode ini berjalan (pola `missing-column`). */
 export const KOLOM_METADATA = [
+  "topik_id",
   "penjelasan_per_opsi",
   "pola_solo",
   "elemen_proses",

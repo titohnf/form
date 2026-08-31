@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { QUESTION_TYPE_LABEL } from "@/lib/types";
 import { parseImport, templatCsv, type ImportResult } from "@/lib/question-import";
+import { contohSoalJson, parseSoalJson, type BarisJson, type HasilJson } from "@/lib/soal-json";
+import { useTopik } from "@/lib/topik";
 import { addImportedBankItems } from "./actions";
 import type { SubjectTopics } from "./BankItem";
 import { Modal, TopicPicker } from "./TopicPicker";
@@ -26,14 +28,27 @@ import { Modal, TopicPicker } from "./TopicPicker";
  * baca topik sebelumnya alih-alih menyimpannya ke tempat yang salah.
  */
 export function ImportPanel({ groupId }: { groupId: string }) {
+  // Kode topik yang benar-benar ada, supaya naskah bertopik salah ketik ditolak
+  // SAAT BACA — bukan saat insert, yang akan menggagalkan seluruh berkas gara-
+  // gara satu baris dan tidak memberi tahu baris mana.
+  const { topik } = useTopik();
   const [nama, setNama] = useState<string | null>(null);
-  const [hasil, setHasil] = useState<ImportResult | null>(null);
+  // Dua pembaca, dua bentuk hasil. Yang sama pada keduanya — daftar baris
+  // beserta masalahnya — itulah yang dipakai layar ini; sisanya dijaga per
+  // bentuk saat dipakai.
+  const [hasil, setHasil] = useState<ImportResult | HasilJson | null>(null);
   const [menyimpan, setMenyimpan] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
   const [tersimpan, setTersimpan] = useState<number | null>(null);
 
   const siap = hasil?.rows.filter((r) => r.item) ?? [];
   const bermasalah = hasil?.rows.filter((r) => !r.item) ?? [];
+  // Hanya berkas JSON yang punya catatan — hal yang diabaikan tapi tidak
+  // menghalangi penyimpanan. Dikatakan supaya data yang dibuang tidak hilang
+  // diam-diam.
+  const bercatatan = (hasil?.rows ?? []).filter(
+    (r): r is BarisJson => "catatan" in r && Boolean((r as BarisJson).catatan),
+  );
 
   async function baca(file: File) {
     setGalat(null);
@@ -49,7 +64,12 @@ export function ImportPanel({ groupId }: { groupId: string }) {
       );
       return;
     }
-    setHasil(parseImport(await file.text()));
+    const isi = await file.text();
+    // JSON dikenali dari nama berkasnya, bukan ditebak dari isinya: berkas CSV
+    // yang rusak dan berkas JSON yang rusak menghasilkan keluhan yang berbeda,
+    // dan menebak salah berarti mengeluh tentang berkas yang bukan miliknya.
+    const kodeSah = topik.length > 0 ? new Set(topik.map((t) => t.id)) : undefined;
+    setHasil(/\.json$/i.test(file.name) ? parseSoalJson(isi, kodeSah) : parseImport(isi));
   }
 
   async function simpan() {
@@ -71,13 +91,14 @@ export function ImportPanel({ groupId }: { groupId: string }) {
     }
   }
 
-  function unduhTemplat() {
-    // Blob, bukan tautan ke berkas statis: isinya dibangkitkan dari aturan
-    // pembacaan yang sama, jadi templat dan pembacanya tidak bisa berpisah.
-    const url = URL.createObjectURL(new Blob([templatCsv()], { type: "text/csv;charset=utf-8" }));
+  // Blob, bukan tautan ke berkas statis: isinya dibangkitkan dari aturan
+  // pembacaan yang sama, jadi contoh dan pembacanya tidak bisa berpisah —
+  // contoh yang usang mengajarkan bentuk yang akan ditolak.
+  function unduh(isi: string, namaBerkas: string, tipe: string) {
+    const url = URL.createObjectURL(new Blob([isi], { type: tipe }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "templat-impor-soal.csv";
+    a.download = namaBerkas;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -85,13 +106,24 @@ export function ImportPanel({ groupId }: { groupId: string }) {
   return (
     <div className="flex w-full flex-col gap-3 text-gray-700">
       <p className="text-xs text-gray-500">
-        Satu baris satu soal, nama kolom di baris pertama. Excel: Simpan Sebagai → CSV.{" "}
+        <b>CSV</b> — satu baris satu soal, nama kolom di baris pertama; Excel: Simpan Sebagai → CSV.
+        <br />
+        <b>JSON</b> — daftar butir bergaya naskah soal, membawa penjelasan per opsi dan metadata
+        pengukuran yang tidak muat di CSV.{" "}
         <button
           type="button"
-          onClick={unduhTemplat}
+          onClick={() => unduh(contohSoalJson(), "contoh-soal.json", "application/json;charset=utf-8")}
           className="font-medium text-blue-600 hover:underline"
         >
-          Unduh templat
+          Unduh contoh JSON
+        </button>
+        {" · "}
+        <button
+          type="button"
+          onClick={() => unduh(templatCsv(), "templat-impor-soal.csv", "text/csv;charset=utf-8")}
+          className="font-medium text-blue-600 hover:underline"
+        >
+          templat CSV
         </button>
       </p>
 
@@ -99,7 +131,7 @@ export function ImportPanel({ groupId }: { groupId: string }) {
 
       <input
         type="file"
-        accept=".csv,.tsv,text/csv,text/tab-separated-values"
+        accept=".csv,.tsv,.json,text/csv,text/tab-separated-values,application/json"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) void baca(file);
@@ -128,10 +160,23 @@ export function ImportPanel({ groupId }: { groupId: string }) {
             )}
           </p>
 
-          {hasil.kolomAsing.length > 0 && (
+          {"kolomAsing" in hasil && hasil.kolomAsing.length > 0 && (
             <p className="text-xs text-gray-500">
               Kolom yang tidak dikenali dan diabaikan: {hasil.kolomAsing.join(", ")}
             </p>
+          )}
+
+          {bercatatan.length > 0 && (
+            // Bukan kegagalan: butirnya tetap tersimpan. Yang disebut di sini
+            // hal yang diabaikan — pola SOLO di soal berjawaban tunggal,
+            // penjelasan yang jumlahnya tidak sama dengan opsinya.
+            <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
+              {bercatatan.map((r) => (
+                <li key={r.nomor}>
+                  <span className="font-medium">Butir {r.nomor}</span> — {r.catatan}
+                </li>
+              ))}
+            </ul>
           )}
 
           {bermasalah.length > 0 && (
@@ -192,7 +237,7 @@ export default function ImportDialog({ groupId, topic }: { groupId: string; topi
         onClick={() => setOpen(true)}
         className="rounded-lg border border-white/30 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
       >
-        Impor CSV
+        Impor soal
       </button>
     );
   }
@@ -243,7 +288,7 @@ export function ImportGlobalDialog({ subjects }: { subjects: SubjectTopics[] }) 
         disabled={subjects.length === 0}
         className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
       >
-        Impor CSV
+        Impor soal
       </button>
 
       {open && (

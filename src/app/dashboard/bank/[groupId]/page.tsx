@@ -124,7 +124,7 @@ export default async function TopicDetailPage({
       <div className="flex flex-col gap-5">
         {items.length === 0 && (
           <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-gray-500">
-            Topik ini belum punya soal. Impor sekumpulan dari CSV di atas, atau buat satu per satu.
+            Topik ini belum punya soal. Impor sekumpulan dari berkas di atas, atau buat satu per satu.
           </p>
         )}
 

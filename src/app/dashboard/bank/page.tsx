@@ -114,7 +114,7 @@ export default async function BankPage() {
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-semibold text-gray-900">Bank Soal</h1>
         {/* Dua jalan masuk yang sama derajatnya: menulis satu soal, atau
-            memasukkan sekumpulan sekaligus dari CSV. Impor berdiri sebagai
+            memasukkan sekumpulan sekaligus dari berkas. Impor berdiri sebagai
             tombol sekunder — ia yang lebih jarang dipakai, tapi ia yang
             mengisi topik kosong dalam sekali jalan. */}
         <div className="flex shrink-0 items-center gap-2">

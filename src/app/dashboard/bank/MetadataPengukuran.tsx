@@ -1,6 +1,7 @@
 "use client";
 
 import type { McqOptions, QuestionOptions, QuestionType } from "@/lib/types";
+import { labelTopik, useTopik } from "@/lib/topik";
 import {
   ELEMEN_PROSES,
   KONTEKS_PISA,
@@ -37,6 +38,7 @@ export default function MetadataPengukuran({
   nilai: Metadata;
   onChange: (next: Metadata) => void;
 }) {
+  const { topik, belum: topikBelumAda } = useTopik();
   const choices = (opsi as McqOptions | null)?.choices ?? [];
   const punyaOpsi = tipe === "mcq_single" || tipe === "mcq_multi";
   const multiSelect = tipe === "mcq_multi";
@@ -66,6 +68,50 @@ export default function MetadataPengukuran({
         Dipakai untuk analisis distraktor dan menjaga bank soal tidak timpang — bukan ditampilkan
         ke murid.
       </p>
+
+      {/* Topik pengukuran berdiri sendiri di atas, bukan berjajar dengan
+          field lain: ia identitas ukur butir ini, bukan sekadar keterangan.
+          Butir tanpa topik tetap tersimpan dan tetap bisa dipakai di kuis
+          kelas — yang hilang cuma sumbangannya ke angka penguasaan.
+
+          Disembunyikan seluruhnya kalau peta kompetensinya belum ada di
+          lingkungan ini (migrasi 143 belum jalan), karena dropdown kosong
+          tanpa penjelasan lebih membingungkan daripada tidak ada apa-apa. */}
+      {!topikBelumAda && (
+        <label className="mt-4 block">
+          <span className="text-xs font-medium text-slate-700">Diukur sebagai</span>
+          <select
+            value={nilai.topik_id ?? ""}
+            onChange={(e) => ubah({ topik_id: e.target.value || null })}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          >
+            <option value="">Tidak diukur — di luar peta kompetensi</option>
+            {topik
+              .filter((t) => t.aktif)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {labelTopik(t)}
+                </option>
+              ))}
+            {/* Topik yang belum dibuka tetap bisa dipilih: soal boleh ditulis
+                lebih dulu daripada topiknya dinyalakan, dan justru begitulah
+                ekspansi berikutnya disiapkan. */}
+            <optgroup label="Belum dibuka untuk murid">
+              {topik
+                .filter((t) => !t.aktif)
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {labelTopik(t)}
+                  </option>
+                ))}
+            </optgroup>
+          </select>
+          <span className="mt-1 block text-xs text-gray-500">
+            Beda dari topik kurikulum di bawah: yang ini menentukan penguasaan mana yang dihitung,
+            bukan di bab mana soalnya muncul.
+          </span>
+        </label>
+      )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="block">

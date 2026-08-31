@@ -386,6 +386,12 @@ export interface QuestionBankItem {
    * sementara yang dikalibrasi adalah butir di banknya. Lihat
    * `lib/metadata-pengukuran.ts`.
    */
+  /**
+   * Topik pengukuran (Learning Progression, migrasi tera 144). Tepat satu, atau
+   * null untuk butir di luar peta — mapel selain Matematika, dan soal kurikulum
+   * yang bukan instrumen ukur.
+   */
+  topik_id?: string | null;
   penjelasan_per_opsi?: Record<string, string> | null;
   pola_solo?: PolaSolo | null;
   elemen_proses?: ElemenProses[] | null;
