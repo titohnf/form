@@ -5,6 +5,8 @@ import type {
   Question,
   StatementGridAnswer,
   StatementGridOptions,
+  TwoTierAnswer,
+  TwoTierOptions,
 } from "@/lib/types";
 import { MathText } from "@/lib/latex";
 import IsiSoal from "@/lib/isi-soal";
@@ -110,6 +112,34 @@ function Answers({ question }: { question: Question }) {
         return <Kosong>Kunci jawaban belum ditandai.</Kosong>;
       }
       return <Kunci>{question.correct_answer === "true" ? "Benar" : "Salah"}</Kunci>;
+
+    case "true_false_two_tier": {
+      const opsi = question.options as TwoTierOptions | null;
+      const kunci = (question.correct_answer ?? {}) as Partial<TwoTierAnswer>;
+      const label = opsi?.answer_labels ?? ["Benar", "Salah"];
+      const alasan = opsi?.reasons ?? [];
+      if (typeof kunci.tier1 !== "boolean" || alasan.length === 0) {
+        return <Kosong>Kunci jawaban belum lengkap.</Kosong>;
+      }
+      const iBenar = Number(kunci.tier2);
+      return (
+        <div className="space-y-2">
+          <Kunci>{kunci.tier1 ? label[0] : label[1]}</Kunci>
+          <p className="text-xs text-gray-500">{opsi?.reason_prompt ?? "Apa alasannya?"}</p>
+          <ul className="space-y-1">
+            {alasan.map((teks, i) => (
+              <li
+                key={i}
+                className={i === iBenar ? "text-sm text-emerald-700" : "text-sm text-gray-600"}
+              >
+                {i === iBenar ? "\u2713 " : "\u00b7 "}
+                <MathText text={teks} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    }
 
     case "short_answer":
     case "fill_blank": {

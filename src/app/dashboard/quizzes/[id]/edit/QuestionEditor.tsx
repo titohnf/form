@@ -14,6 +14,8 @@ import type {
   StatementGridAnswer,
   StatementGridGradingMode,
   StatementGridOptions,
+  TwoTierAnswer,
+  TwoTierOptions,
 } from "@/lib/types";
 import { BRANCH_END, QUESTION_TYPE_LABEL } from "@/lib/types";
 import { BLOOM_LEVELS } from "@/lib/bloom";
@@ -51,6 +53,13 @@ interface Draft {
   /** Judul kolom pernyataan; "" berarti sudut kiri atas dibiarkan kosong. */
   statementLabel: string;
   gradingMode: StatementGridGradingMode;
+  /** true_false_two_tier — tingkat 1 memakai `tfCorrect` dan `statementLabels`. */
+  reasonPrompt: string;
+  reasons: string[];
+  /** Indeks alasan yang benar, sebagai teks; "" berarti belum dipilih. */
+  reasonKey: string;
+  /** Skor tingkat 1 benar tapi alasan salah; "" berarti pakai default 0,5. */
+  skorSebagian: string;
   branching: Branching;
   /** "" berarti belum ditetapkan; select HTML hanya mengenal string. */
   bloomLevel: string;
@@ -62,6 +71,8 @@ function toDraft(question: Question): Draft {
   const ordering = question.options as OrderingOptions | null;
   const grid = question.options as StatementGridOptions | null;
   const gridKey = (question.correct_answer ?? {}) as Partial<StatementGridAnswer>;
+  const twoTier = question.options as TwoTierOptions | null;
+  const twoTierKey = (question.correct_answer ?? {}) as Partial<TwoTierAnswer>;
 
   return {
     type: question.type,
@@ -85,6 +96,13 @@ function toDraft(question: Question): Draft {
     statementLabels: grid?.answer_labels ?? DEFAULT_STATEMENT_LABELS,
     statementLabel: grid?.statement_label ?? "",
     gradingMode: gridKey.grading_mode === "all_or_nothing" ? "all_or_nothing" : "proportional",
+    reasonPrompt: twoTier?.reason_prompt ?? "Apa alasannya?",
+    reasons: twoTier?.reasons?.length ? twoTier.reasons : ["", ""],
+    reasonKey: twoTierKey.tier2 ?? "",
+    skorSebagian:
+      twoTierKey.skor_sebagian === null || twoTierKey.skor_sebagian === undefined
+        ? ""
+        : String(twoTierKey.skor_sebagian),
     branching: question.branching ?? {},
     bloomLevel: question.bloom_level ? String(question.bloom_level) : "",
   };
@@ -176,6 +194,24 @@ function toPatch(draft: Draft): QuestionPatch {
       answers: rows.map((r) => r.key),
       grading_mode: draft.gradingMode,
     } satisfies StatementGridAnswer;
+  } else if (draft.type === "true_false_two_tier") {
+    // Alasan kosong dibuang bersama penunjuk kuncinya: kunci yang menunjuk
+    // baris yang sudah dihapus akan menilai setiap jawaban sebagai alasan
+    // salah, tanpa ada yang kelihatan keliru di editornya.
+    const reasons = draft.reasons.map((r) => r.trim()).filter(Boolean);
+    const kunciLama = draft.reasons[Number(draft.reasonKey)]?.trim();
+    const posisi = kunciLama ? reasons.indexOf(kunciLama) : -1;
+
+    options = {
+      answer_labels: draft.statementLabels,
+      reason_prompt: draft.reasonPrompt.trim() || "Apa alasannya?",
+      reasons,
+    } satisfies TwoTierOptions;
+    correct_answer = {
+      tier1: draft.tfCorrect === "true",
+      tier2: posisi >= 0 ? String(posisi) : "",
+      skor_sebagian: draft.skorSebagian.trim() ? Number(draft.skorSebagian) : null,
+    } satisfies TwoTierAnswer;
   }
   // essay / upload_file keep both null.
 
@@ -624,6 +660,18 @@ export default function QuestionEditor({
           </div>
         )}
 
+        {draft.type === "true_false_two_tier" && (
+          <TwoTierRows
+            tfCorrect={draft.tfCorrect}
+            statementLabels={draft.statementLabels}
+            reasonPrompt={draft.reasonPrompt}
+            reasons={draft.reasons}
+            reasonKey={draft.reasonKey}
+            skorSebagian={draft.skorSebagian}
+            onChange={patchDraft}
+          />
+        )}
+
         {draft.type === "short_answer" && (
           <label className="flex flex-col gap-1 text-sm">
             Kunci jawaban (pisahkan dengan koma jika ada beberapa variasi)
@@ -899,6 +947,162 @@ function StatementRows({
     </div>
   );
 }
+
+/**
+ * Editor soal Benar-Salah dua tingkat.
+ *
+ * Bentuk ini ada untuk satu alasan yang tidak bisa dicapai Benar-Salah biasa:
+ * memisahkan jawaban yang benar karena paham dari jawaban yang benar karena
+ * menebak atau karena alasan yang keliru. Peluang menebak tingkat 1 saja 50%;
+ * menebak keduanya sekaligus jauh lebih kecil, dan alasan yang dipilih justru
+ * yang memberi tahu miskonsepsi apa yang dipegang murid (dokumen fondasi
+ * Bagian 3.4).
+ *
+ * Karena itu pilihan alasan yang SALAH harus mencerminkan miskonsepsi nyata —
+ * alasan asal-asalan membuat tingkat 2 gampang ditebak dan soalnya kembali jadi
+ * Benar-Salah biasa yang lebih panjang.
+ */
+function TwoTierRows({
+  tfCorrect,
+  statementLabels,
+  reasonPrompt,
+  reasons,
+  reasonKey,
+  skorSebagian,
+  onChange,
+}: {
+  tfCorrect: "true" | "false";
+  statementLabels: [string, string];
+  reasonPrompt: string;
+  reasons: string[];
+  reasonKey: string;
+  skorSebagian: string;
+  onChange: (changes: Partial<Draft>) => void;
+}) {
+  function setReasonAt(i: number, text: string) {
+    onChange({ reasons: reasons.map((r, j) => (j === i ? text : r)) });
+  }
+
+  function tambahAlasan() {
+    onChange({ reasons: [...reasons, ""] });
+  }
+
+  function hapusAlasan(i: number) {
+    // Kuncinya ikut bergeser: ia menunjuk indeks, dan menghapus baris di
+    // atasnya membuat penunjuk lama menunjuk alasan yang salah.
+    const sisa = reasons.filter((_, j) => j !== i);
+    const kini = Number(reasonKey);
+    const kunciBaru =
+      reasonKey === "" || kini === i ? "" : String(kini > i ? kini - 1 : kini);
+    onChange({ reasons: sisa, reasonKey: kunciBaru });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="text-sm">
+        Tingkat 1 — jawaban benar
+        <div className="mt-1 flex gap-4 text-base">
+          {(["true", "false"] as const).map((v) => (
+            <label key={v} className="flex items-center gap-1">
+              <input
+                type="radio"
+                checked={tfCorrect === v}
+                onChange={() => onChange({ tfCorrect: v })}
+                className="h-4 w-4"
+              />
+              {v === "true" ? statementLabels[0] : statementLabels[1]}
+            </label>
+          ))}
+        </div>
+        <div className="mt-2 flex gap-2">
+          {([0, 1] as const).map((i) => (
+            <input
+              key={i}
+              value={statementLabels[i]}
+              onChange={(e) => {
+                const next: [string, string] = [...statementLabels];
+                next[i] = e.target.value;
+                onChange({ statementLabels: next });
+              }}
+              placeholder={i === 0 ? "Benar" : "Salah"}
+              className="w-32 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+            />
+          ))}
+          <span className="self-center text-xs text-gray-400">
+            Label tingkat 1 — tidak harus &ldquo;Benar/Salah&rdquo;
+          </span>
+        </div>
+      </div>
+
+      <label className="flex flex-col gap-1 text-sm">
+        Pertanyaan tingkat 2
+        <input
+          value={reasonPrompt}
+          onChange={(e) => onChange({ reasonPrompt: e.target.value })}
+          placeholder="Apa alasannya?"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+      </label>
+
+      <div className="text-sm">
+        Pilihan alasan — tandai yang benar
+        <div className="mt-2 space-y-2">
+          {reasons.map((alasan, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="alasan-benar"
+                checked={reasonKey === String(i)}
+                onChange={() => onChange({ reasonKey: String(i) })}
+                className="h-4 w-4 shrink-0"
+              />
+              <input
+                value={alasan}
+                onChange={(e) => setReasonAt(i, e.target.value)}
+                placeholder={i === 0 ? "Alasan yang benar" : "Miskonsepsi yang nyata, bukan opsi asal"}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              {reasons.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => hapusAlasan(i)}
+                  className="shrink-0 text-xs text-gray-400 hover:text-red-600"
+                >
+                  Hapus
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={tambahAlasan}
+          className="mt-2 text-xs font-medium text-blue-600 hover:underline"
+        >
+          + Alasan
+        </button>
+      </div>
+
+      <label className="flex flex-col gap-1 text-sm">
+        Nilai kalau tingkat 1 benar tapi alasannya salah
+        <input
+          type="number"
+          step="0.05"
+          min="0"
+          max="1"
+          value={skorSebagian}
+          onChange={(e) => onChange({ skorSebagian: e.target.value })}
+          placeholder="0,5"
+          className="w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+        <span className="text-xs text-gray-400">
+          Sebagai bagian dari bobot soal. Kosong berarti 0,5.
+        </span>
+      </label>
+    </div>
+  );
+}
+
 
 /**
  * One row per answer choice, with the radio/checkbox that marks the key sitting

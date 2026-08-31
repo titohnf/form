@@ -7,6 +7,7 @@ import type {
   OrderingOptions,
   Question,
   StatementGridOptions,
+  TwoTierOptions,
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { MathText } from "@/lib/latex";
@@ -93,6 +94,15 @@ export default function QuestionInput({
             Salah
           </label>
         </div>
+      )}
+
+      {question.type === "true_false_two_tier" && (
+        <TwoTier
+          id={question.id}
+          options={question.options as TwoTierOptions | null}
+          value={value}
+          onChange={onChange}
+        />
       )}
 
       {question.type === "short_answer" && (
@@ -349,6 +359,73 @@ function UploadFileInput({
       {typeof value === "string" && value && (
         <p className="mt-1 text-green-700">Sudah diunggah ✓</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Soal Benar-Salah dua tingkat, dari sisi murid.
+ *
+ * Kedua tingkat ditampilkan SEKALIGUS, bukan tingkat 2 baru muncul sesudah
+ * tingkat 1 dijawab. Memunculkannya bertahap memberi tahu murid bahwa alasannya
+ * dinilai terpisah, dan itu mengubah cara ia menjawab tingkat 1 — persis
+ * kontaminasi yang bentuk soal ini justru ada untuk menghindarinya.
+ *
+ * Jawabannya satu objek `{tier1, tier2}`, bentuk yang sama dengan yang dibaca
+ * `nilai_jawaban()` di database.
+ */
+function TwoTier({
+  id,
+  options,
+  value,
+  onChange,
+}: {
+  id: string;
+  options: TwoTierOptions | null;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  const label = options?.answer_labels ?? ["Benar", "Salah"];
+  const reasons = options?.reasons ?? [];
+  const kini = (value ?? {}) as { tier1?: unknown; tier2?: unknown };
+
+  function ubah(patch: { tier1?: boolean; tier2?: string }) {
+    onChange({ ...kini, ...patch });
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-4">
+      <div className="flex gap-4 text-sm">
+        {[true, false].map((v) => (
+          <label key={String(v)} className="flex items-center gap-2">
+            <input
+              type="radio"
+              name={`q_${id}_t1`}
+              checked={kini.tier1 === v}
+              onChange={() => ubah({ tier1: v })}
+            />
+            {v ? label[0] : label[1]}
+          </label>
+        ))}
+      </div>
+
+      <div className="text-sm">
+        <p className="text-gray-600">{options?.reason_prompt ?? "Apa alasannya?"}</p>
+        <div className="mt-2 flex flex-col gap-2">
+          {reasons.map((alasan, i) => (
+            <label key={i} className="flex items-start gap-2">
+              <input
+                type="radio"
+                name={`q_${id}_t2`}
+                checked={kini.tier2 === String(i)}
+                onChange={() => ubah({ tier2: String(i) })}
+                className="mt-1"
+              />
+              <MathText text={alasan} />
+            </label>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

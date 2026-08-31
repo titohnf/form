@@ -5,6 +5,8 @@ import type {
   Question,
   StatementGridAnswer,
   StatementGridOptions,
+  TwoTierAnswer,
+  TwoTierOptions,
 } from "./types";
 
 /**
@@ -63,6 +65,21 @@ export function questionIssue(
       const answers = Array.isArray(key.answers) ? key.answers : [];
       const marked = statements.every((_, i) => typeof answers[i] === "boolean");
       return marked ? null : "setiap pernyataan harus ditandai kuncinya";
+    }
+
+    case "true_false_two_tier": {
+      const opsi = question.options as TwoTierOptions | null;
+      const alasan = (opsi?.reasons ?? []).filter((r) => r.trim());
+      if (alasan.length < 2) return "butuh minimal 2 pilihan alasan di tingkat 2";
+      const kunci = (question.correct_answer ?? {}) as Partial<TwoTierAnswer>;
+      if (typeof kunci.tier1 !== "boolean") return "tingkat 1 belum ditandai kuncinya";
+      // Kunci tingkat 2 menunjuk indeks; alasan yang sudah dihapus meninggalkan
+      // penunjuk yang tidak mengarah ke mana-mana, dan soal seperti itu menilai
+      // setiap jawaban sebagai alasan salah tanpa ada yang tahu kenapa.
+      const i = Number(kunci.tier2);
+      if (!Number.isInteger(i) || i < 0 || i >= alasan.length)
+        return "alasan yang benar belum dipilih";
+      return null;
     }
 
     case "true_false":

@@ -5,9 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { missingColumn, without } from "@/lib/missing-column";
 import type { QuestionPatch } from "@/lib/types";
 import type { ImportedItem } from "@/lib/question-import";
+import { KOLOM_METADATA, type MetadataPengukuran } from "@/lib/metadata-pengukuran";
 
 /** Kolom yang menyusul lewat migrasi; boleh belum ada saat kode ini berjalan. */
-const OPTIONAL_COLUMNS = ["bloom_level"];
+const OPTIONAL_COLUMNS = ["bloom_level", ...KOLOM_METADATA];
 
 /**
  * Menyimpan suntingan satu soal bank.
@@ -20,10 +21,22 @@ const OPTIONAL_COLUMNS = ["bloom_level"];
  * `branching` dibuang: ia menunjuk sesama soal di dalam satu paket, dan soal
  * bank tidak punya itu.
  */
-export async function saveBankItem(itemId: string, patch: QuestionPatch) {
+export async function saveBankItem(
+  itemId: string,
+  patch: QuestionPatch,
+  /**
+   * Metadata pengukuran ikut di sini, bukan lewat aksi sendiri, supaya satu
+   * tombol "Simpan perubahan" benar-benar menyimpan semua yang barusan diubah.
+   * Aksi terpisah berarti dua tulisan yang bisa setengah berhasil, dan yang
+   * tertinggal bukan galat melainkan butir yang metadatanya diam-diam versi
+   * lama. Hanya bank yang punya kolom ini — soal di dalam paket tidak.
+   */
+  meta?: MetadataPengukuran,
+) {
   const supabase = await createClient();
-  const { branching: _branching, ...content } = patch;
+  const { branching: _branching, ...isiSoal } = patch;
   void _branching;
+  const content = meta ? { ...isiSoal, ...meta } : isiSoal;
 
   // Kolom yang menyusul lewat migrasi dibuang satu per satu kalau belum ada.
   const dropped: string[] = [];
@@ -161,6 +174,39 @@ export async function addImportedBankItems(groupId: string, items: ImportedItem[
   revalidatePath("/dashboard/bank");
   revalidatePath(`/dashboard/bank/${groupId}`);
   return created.length;
+}
+
+/**
+ * Memindahkan satu butir ke tahap verifikasi berikutnya (FR1).
+ *
+ * Menyimpan seketika, tidak menunggu tombol "Simpan perubahan" — sama seperti
+ * tag topik, karena ini bukan isi soal melainkan pernyataan tentang soalnya:
+ * "saya sudah memeriksa hitungannya". Menahannya di ingatan halaman bersama
+ * suntingan lain akan membuat pernyataan itu ikut hilang kalau tabnya ditutup.
+ *
+ * Urutan tahapnya ditegakkan trigger di database, bukan di sini. Yang dilakukan
+ * fungsi ini cuma meneruskan galatnya apa adanya — pesan dari trigger sudah
+ * menyebut dari mana ke mana lompatannya, dan menuliskan ulang aturan yang sama
+ * di sini berarti dua tempat yang bisa berbeda.
+ */
+export async function ubahStatusVerifikasi(itemId: string, status: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("question_bank_items")
+    .update({ status_verifikasi: status })
+    .eq("id", itemId);
+
+  if (error) {
+    // Kolomnya belum ada berarti migrasi 141 belum jalan — bukan kesalahan
+    // orang yang menekan tombolnya, jadi kalimatnya menyebut sebabnya.
+    if (missingColumn(error, ["status_verifikasi"])) {
+      throw new Error("Status verifikasi belum aktif di database ini (migrasi 141 belum jalan).");
+    }
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard/bank", "layout");
 }
 
 export async function deleteBankItem(itemId: string) {

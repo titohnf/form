@@ -9,9 +9,35 @@ import { topicLabel } from "@/lib/curriculum";
 import { bloomLabel } from "@/lib/bloom";
 import { nowMs, relativeTime } from "@/lib/relative-time";
 import { questionIssue } from "@/lib/question-validation";
+import {
+  ARTI_VERIFIKASI,
+  LABEL_VERIFIKASI,
+  transisiBoleh,
+  type StatusVerifikasi,
+} from "@/lib/verifikasi";
+import type { MetadataPengukuran as Metadata } from "@/lib/metadata-pengukuran";
 import QuestionEditor from "../quizzes/[id]/edit/QuestionEditor";
 import QuestionPreview from "./QuestionPreview";
-import { saveBankItem, deleteBankItem, toggleQuestionTopic } from "./actions";
+import MetadataPengukuran from "./MetadataPengukuran";
+import {
+  saveBankItem,
+  deleteBankItem,
+  toggleQuestionTopic,
+  ubahStatusVerifikasi,
+} from "./actions";
+
+/**
+ * Warna tiap tahap. Hijau hanya untuk `aktif` — satu-satunya tahap yang berarti
+ * soalnya sampai ke murid; sisanya sengaja netral supaya "hampir selesai" tidak
+ * terbaca seperti "sudah beres".
+ */
+const WARNA_STATUS: Record<StatusVerifikasi, string> = {
+  draf: "bg-slate-100 text-slate-600",
+  terverifikasi_matematis: "bg-indigo-50 text-indigo-700",
+  direview_pedagogis: "bg-violet-50 text-violet-700",
+  aktif: "bg-emerald-50 text-emerald-700",
+  ditarik: "bg-rose-50 text-rose-700",
+};
 
 export interface SubjectTopics {
   subjectId: string;
@@ -97,6 +123,27 @@ export default function BankItem({
   // klik di antara orang dan satu-satunya hal yang bisa dia lakukan di sana.
   const [editing, setEditing] = useState(!item.prompt.trim() || Boolean(selesai));
   const [confirmHapus, setConfirmHapus] = useState(false);
+  // Status verifikasi hidup terpisah dari `isi`: ia menyimpan seketika saat
+  // ditekan, bukan ikut antre sampai "Simpan perubahan". Lihat
+  // `ubahStatusVerifikasi` di actions.ts.
+  //
+  // Bawaannya `draf` kalau kolomnya belum ada (migrasi 141 belum jalan di
+  // lingkungan ini) — bukan `aktif`, karena menebak ke arah yang lebih longgar
+  // berarti menampilkan soal yang belum diperiksa sebagai sudah siap.
+  const [status, setStatus] = useState<StatusVerifikasi>(item.status_verifikasi ?? "draf");
+  const [galatStatus, setGalatStatus] = useState<string | null>(null);
+  // Metadata pengukuran, sebaliknya, MENUMPANG tombol Simpan milik editor —
+  // ia bagian dari menulis butir, bukan pernyataan tentang butir. Karena itu ia
+  // ikut menandai kartu "kotor" saat diubah.
+  const metaAwal: Metadata = {
+    penjelasan_per_opsi: item.penjelasan_per_opsi ?? null,
+    pola_solo: item.pola_solo ?? null,
+    elemen_proses: item.elemen_proses ?? null,
+    tag_konteks_pisa: item.tag_konteks_pisa ?? null,
+    sumber_pembuatan: item.sumber_pembuatan ?? "manual",
+  };
+  const [meta, setMeta] = useState<Metadata>(metaAwal);
+  const metaRef = useRef(metaAwal);
   // Suntingan hidup di sini dulu, tidak di server: yang menulis ke database
   // hanya tombol "Simpan perubahan". Autosave dulu membuat kedua tombol di
   // bawah berbohong — yang bernama Simpan tidak menyimpan apa pun, dan yang
@@ -169,16 +216,20 @@ export default function BankItem({
     setMenyimpan(true);
     const kini = isiRef.current;
     try {
-      await saveBankItem(item.id, {
-        type: kini.type,
-        prompt: kini.prompt,
-        weight: kini.weight,
-        options: kini.options,
-        correct_answer: kini.correct_answer,
-        explanation: kini.explanation,
-        bloom_level: kini.bloom_level ?? null,
-        branching: null,
-      });
+      await saveBankItem(
+        item.id,
+        {
+          type: kini.type,
+          prompt: kini.prompt,
+          weight: kini.weight,
+          options: kini.options,
+          correct_answer: kini.correct_answer,
+          explanation: kini.explanation,
+          bloom_level: kini.bloom_level ?? null,
+          branching: null,
+        },
+        metaRef.current,
+      );
     } catch (e) {
       setGalat(e instanceof Error ? e.message : "Gagal menyimpan soal.");
       setMenyimpan(false);
@@ -194,8 +245,17 @@ export default function BankItem({
   function batal() {
     isiRef.current = item;
     setIsi(item);
+    metaRef.current = metaAwal;
+    setMeta(metaAwal);
     setKotor(false);
     tutup();
+  }
+
+  /** Metadata berubah: tampung di ingatan halaman, dan tandai kartunya kotor. */
+  function ubahMeta(next: Metadata) {
+    metaRef.current = next;
+    setMeta(next);
+    setKotor(true);
   }
 
   /** Menutup editor — melipatnya, atau pulang kalau kartunya sendirian. */
@@ -219,6 +279,23 @@ export default function BankItem({
     toggleQuestionTopic(item.id, topicId, !next);
   }
 
+  /**
+   * Memindahkan tahap verifikasi. Optimistis, lalu dipulihkan kalau server
+   * menolak — yang paling mungkin menolak adalah trigger yang menjaga urutan
+   * tahap, dan pesannya lebih berguna daripada tombol yang diam saja.
+   */
+  async function pindahkanStatus(ke: StatusVerifikasi) {
+    const sebelum = status;
+    setStatus(ke);
+    setGalatStatus(null);
+    try {
+      await ubahStatusVerifikasi(item.id, ke);
+    } catch (e) {
+      setStatus(sebelum);
+      setGalatStatus(e instanceof Error ? e.message : "Gagal mengubah status.");
+    }
+  }
+
   if (!editing) {
     const issue = questionIssue(asQuestion);
     const bloom = bloomLabel(isi.bloom_level);
@@ -228,6 +305,12 @@ export default function BankItem({
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-xs text-gray-500">{QUESTION_TYPE_LABEL[isi.type]}</span>
           {bloom && <span className="text-xs text-gray-400">{bloom}</span>}
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${WARNA_STATUS[status]}`}
+            title={ARTI_VERIFIKASI[status]}
+          >
+            {LABEL_VERIFIKASI[status]}
+          </span>
           {tagged.length === 0 && (
             <span className="text-xs text-amber-600">Belum ditandai topik</span>
           )}
@@ -280,6 +363,30 @@ export default function BankItem({
           </div>
         </div>
 
+        {/* Tahap verifikasi: satu baris, di atas soalnya.
+            Yang ditawarkan hanya langkah yang memang diizinkan dari tahap
+            sekarang — tombol "Aktifkan" tidak muncul untuk butir yang masih
+            draf, karena menawarkannya berarti menjanjikan sesuatu yang pasti
+            ditolak trigger di database. */}
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-slate-100 py-2">
+          <span className="text-xs text-gray-500">{ARTI_VERIFIKASI[status]}</span>
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            {transisiBoleh(status).map((ke) => (
+              <button
+                key={ke}
+                type="button"
+                onClick={() => pindahkanStatus(ke)}
+                className={`text-xs font-medium hover:underline ${
+                  ke === "ditarik" ? "text-gray-400 hover:text-red-600" : "text-blue-600"
+                }`}
+              >
+                {ke === "ditarik" ? "Tarik" : `→ ${LABEL_VERIFIKASI[ke]}`}
+              </button>
+            ))}
+          </div>
+          {galatStatus && <p className="w-full text-xs text-red-600">{galatStatus}</p>}
+        </div>
+
         <QuestionPreview question={asQuestion} />
       </article>
     );
@@ -305,6 +412,16 @@ export default function BankItem({
             </span>
           )
         }
+      />
+
+      {/* Di bawah editornya, bukan di dalamnya: `QuestionEditor` dipakai bersama
+          oleh editor paket, sementara kolom-kolom ini cuma ada di bank. */}
+      <MetadataPengukuran
+        tipe={isi.type}
+        opsi={isi.options}
+        bloomLevel={isi.bloom_level}
+        nilai={meta}
+        onChange={ubahMeta}
       />
 
       {!topikDariAsal && (

@@ -1,99 +1,23 @@
-import type {
-  MatchingOptions,
-  OrderingOptions,
-  Question,
-  StatementGridAnswer,
-  StatementGridOptions,
-} from "@/lib/types";
-
-export interface GradeResult {
-  autoScore: number | null;
-  needsManualGrading: boolean;
-}
-
-function normalize(value: unknown): string {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function normalizedSet(values: unknown): Set<string> {
-  const arr = Array.isArray(values) ? values : [];
-  return new Set(arr.map(normalize));
-}
-
-function setsEqual(a: Set<string>, b: Set<string>): boolean {
-  return a.size === b.size && [...a].every((v) => b.has(v));
-}
-
-/** Grades a single response against its question's answer key. Essays and file uploads are never auto-graded. */
-export function gradeAnswer(question: Question, response: unknown): GradeResult {
-  switch (question.type) {
-    case "mcq_single":
-    case "true_false": {
-      const correct = normalize(question.correct_answer) === normalize(response);
-      return { autoScore: correct ? question.weight : 0, needsManualGrading: false };
-    }
-    case "short_answer": {
-      const keys = Array.isArray(question.correct_answer)
-        ? (question.correct_answer as unknown[])
-        : [question.correct_answer];
-      const correct = keys.some((key) => normalize(key) === normalize(response));
-      return { autoScore: correct ? question.weight : 0, needsManualGrading: false };
-    }
-    case "mcq_multi": {
-      const correct = setsEqual(normalizedSet(question.correct_answer), normalizedSet(response));
-      return { autoScore: correct ? question.weight : 0, needsManualGrading: false };
-    }
-    case "matching": {
-      const pairs = (question.options as MatchingOptions | null)?.pairs ?? [];
-      const submitted = (response ?? {}) as Record<string, string>;
-      const correct = pairs.every((pair) => normalize(submitted[pair.left]) === normalize(pair.right));
-      return { autoScore: correct && pairs.length > 0 ? question.weight : 0, needsManualGrading: false };
-    }
-    case "ordering": {
-      const correctOrder = (question.options as OrderingOptions | null)?.items ?? [];
-      const submitted = Array.isArray(response) ? (response as unknown[]) : [];
-      const correct =
-        correctOrder.length > 0 &&
-        correctOrder.length === submitted.length &&
-        correctOrder.every((item, i) => normalize(item) === normalize(submitted[i]));
-      return { autoScore: correct ? question.weight : 0, needsManualGrading: false };
-    }
-    case "fill_blank": {
-      const keys = Array.isArray(question.correct_answer)
-        ? (question.correct_answer as unknown[])
-        : [];
-      const submitted = Array.isArray(response) ? (response as unknown[]) : [];
-      if (keys.length === 0) return { autoScore: 0, needsManualGrading: false };
-      const correctCount = keys.filter((key, i) => normalize(key) === normalize(submitted[i])).length;
-      return { autoScore: (question.weight * correctCount) / keys.length, needsManualGrading: false };
-    }
-    case "statement_grid": {
-      const statements = (question.options as StatementGridOptions | null)?.statements ?? [];
-      const key = (question.correct_answer ?? {}) as Partial<StatementGridAnswer>;
-      const answers = Array.isArray(key.answers) ? key.answers : [];
-      const submitted = Array.isArray(response) ? (response as unknown[]) : [];
-      if (statements.length === 0) return { autoScore: 0, needsManualGrading: false };
-
-      // `typeof` guards the unmarked rows: without it an unanswered statement
-      // (null) would match an unmarked key entry (null) and score as correct.
-      const correctCount = statements.filter(
-        (_, i) => typeof answers[i] === "boolean" && submitted[i] === answers[i],
-      ).length;
-
-      const score =
-        key.grading_mode === "all_or_nothing"
-          ? correctCount === statements.length
-            ? question.weight
-            : 0
-          : (question.weight * correctCount) / statements.length;
-      return { autoScore: score, needsManualGrading: false };
-    }
-    case "essay":
-    case "upload_file":
-    default:
-      return { autoScore: null, needsManualGrading: true };
-  }
-}
+/**
+ * Yang tersisa dari penilaian di sisi TypeScript: penjumlahan, bukan aturan.
+ *
+ * `gradeAnswer()` dulu tinggal di sini, dan kembarannya di `nilaiJawaban()`
+ * pada repo `tera`. Keduanya menilai satu jawaban dengan aturan yang wajib
+ * sama persis — dijaga oleh komentar saling menunjuk, dan tidak oleh apa pun
+ * yang bisa gagal secara terlihat. Sejak migrasi tera 136/137 aturan itu punya
+ * SATU definisi, `nilai_jawaban()` di Postgres, dipanggil kedua aplikasi lewat
+ * database yang memang sudah mereka bagi. Alasannya bukan bahwa SQL lebih
+ * baik, melainkan bahwa dua repo ini tidak berbagi paket npm — dan paket privat
+ * cuma akan menukar duplikasi yang terlihat dengan version skew yang tidak.
+ *
+ * Yang di bawah ini tetap di sini karena ia bukan aturan skoring: ia soal
+ * bagaimana nilai sebuah PERCOBAAN disusun dari jawaban-jawabannya, termasuk
+ * menahan angkanya selama masih ada soal yang menunggu dinilai tutor. Itu
+ * urusan Sora sendiri; Tera tidak punya esai di jalur latihannya.
+ *
+ * Kesetaraan `nilai_jawaban()` dengan kedua berkas lama itu dibuktikan sebelum
+ * keduanya dihapus, dan tetap dijaga: `scripts/uji-nilai-jawaban.ts`.
+ */
 
 /** Sums a quiz attempt's total score from graded answers; null while any answer is ungraded. */
 export function totalScore(

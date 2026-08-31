@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { gradeAnswer, totalScore } from "@/lib/grading";
+import { totalScore } from "@/lib/grading";
 import type { Question, QuizSettings } from "@/lib/types";
 
 export type StartAttemptResult = { attemptId: string } | { error: string };
@@ -103,17 +103,48 @@ export async function finalizeAttempt(shareCode: string, attemptId: string) {
     .select("*")
     .eq("attempt_id", attemptId);
 
-  const gradedAnswers = (questions as Question[] | null ?? []).map((question) => {
-    const existing = (existingAnswers ?? []).find((a) => a.question_id === question.id);
-    const { autoScore, needsManualGrading } = gradeAnswer(question, existing?.response ?? null);
+  const daftar = (questions as Question[] | null ?? []).map((question) => ({
+    question,
+    response: (existingAnswers ?? []).find((a) => a.question_id === question.id)?.response ?? null,
+  }));
+
+  // Penilaiannya terjadi di database, lewat `nilai_jawaban()` (migrasi tera
+  // 136) — satu-satunya definisi aturan skoring, dipakai bersama oleh Sora dan
+  // Tera. Sampai sebelum ini aturan yang sama ditulis dua kali di dua repo yang
+  // tidak berbagi paket npm, dan yang menjaganya tetap sama cuma komentar.
+  //
+  // Sekali panggil untuk seluruh isi percobaan, bukan sekali per soal: kuis dua
+  // puluh soal berarti dua puluh perjalanan ke Singapura di jalur yang tadinya
+  // nol. Keluarannya sejajar indeks dengan masukannya.
+  const { data: nilaiList, error: galatNilai } = await supabase.rpc("nilai_jawaban_banyak", {
+    p_daftar: daftar.map(({ question, response }) => ({
+      tipe: question.type,
+      opsi: question.options,
+      kunci: question.correct_answer,
+      jawaban: response,
+      bobot: question.weight,
+    })),
+  });
+
+  if (galatNilai) {
+    redirect(`/q/${shareCode}?error=Gagal+menilai+jawaban`);
+  }
+
+  const nilai = (nilaiList as (number | string | null)[] | null) ?? [];
+
+  const gradedAnswers = daftar.map(({ question, response }, i) => {
+    // `null` berarti tipe yang tidak dinilai mesin (esai, unggah berkas) —
+    // bukan nol. Membedakannya di sini yang membuat soal esai masuk antrean
+    // penilaian tutor alih-alih terbaca sebagai jawaban salah.
+    const skor = nilai[i] === null || nilai[i] === undefined ? null : Number(nilai[i]);
     return {
       attempt_id: attemptId,
       question_id: question.id,
       quiz_id: attempt!.quiz_id,
-      response: existing?.response ?? null,
-      auto_score: autoScore,
+      response,
+      auto_score: skor,
       manual_score: null,
-      needs_manual_grading: needsManualGrading,
+      needs_manual_grading: skor === null,
     };
   });
 

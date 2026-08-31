@@ -1,3 +1,11 @@
+import type { StatusVerifikasi } from "./verifikasi";
+import type {
+  ElemenProses,
+  KonteksPisa,
+  PolaSolo,
+  SumberPembuatan,
+} from "./metadata-pengukuran";
+
 export type QuestionType =
   | "mcq_single"
   | "true_false"
@@ -8,7 +16,8 @@ export type QuestionType =
   | "ordering"
   | "fill_blank"
   | "upload_file"
-  | "statement_grid";
+  | "statement_grid"
+  | "true_false_two_tier";
 
 /**
  * Nama tiap tipe soal, satu-satunya tempat ia ditulis.
@@ -29,6 +38,7 @@ export const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   statement_grid: "Pilihan Ganda Kompleks (Kategori)",
   mcq_multi: "Pilihan Ganda Kompleks (MCMA)",
   true_false: "Benar / Salah",
+  true_false_two_tier: "Benar / Salah Dua Tingkat",
   short_answer: "Isian Singkat",
   essay: "Esai",
   matching: "Menjodohkan",
@@ -83,6 +93,38 @@ export interface StatementGridOptions {
   answer_labels: [string, string];
 }
 
+/**
+ * Bentuk `options` untuk `true_false_two_tier`.
+ *
+ * Tingkat 1 menilai pernyataannya (label kategorinya bisa bukan "Benar/Salah"
+ * literal — contoh soal resmi TKA memakai "Mungkin/Tidak Mungkin" dan sejenisnya,
+ * lihat Rubrik Bagian 4.2). Tingkat 2 menanyakan ALASANNYA, dipilih dari daftar,
+ * bukan diketik bebas: itu yang membuat miskonsepsi terdeteksi tanpa penilaian
+ * teks bebas (dokumen fondasi Bagian 3.4).
+ */
+export interface TwoTierOptions {
+  /** Dua tombol tingkat 1, urut [benar, salah]. */
+  answer_labels: [string, string];
+  /** Pertanyaan tingkat 2, mis. "Apa alasannya?". */
+  reason_prompt: string;
+  /** Pilihan alasan. Yang salah harus mencerminkan miskonsepsi nyata, bukan opsi asal. */
+  reasons: string[];
+}
+
+/**
+ * Bentuk `correct_answer` untuk `true_false_two_tier`.
+ *
+ * `skor_sebagian` ikut di kunci, bukan dipatok di kode: PRD FR5 menyerahkan
+ * besarannya ke tim konten. Null berarti pakai default 0,5 di
+ * `nilai_jawaban()` (migrasi tera 138).
+ */
+export interface TwoTierAnswer {
+  tier1: boolean;
+  /** Indeks alasan yang benar di `TwoTierOptions.reasons`, sebagai teks. */
+  tier2: string;
+  skor_sebagian?: number | null;
+}
+
 export type StatementGridGradingMode = "proportional" | "all_or_nothing";
 
 /**
@@ -105,6 +147,7 @@ export type QuestionOptions =
   | MatchingOptions
   | OrderingOptions
   | StatementGridOptions
+  | TwoTierOptions
   | null;
 
 /** Sentinel value in `Question.branching` meaning "submit the quiz now" instead of jumping to another question. */
@@ -330,6 +373,24 @@ export interface QuestionBankItem {
   stimulus_images: string[];
   /** Taksonomi Bloom 1–6, null kalau belum ditetapkan. Lihat `lib/bloom.ts`. */
   bloom_level?: number | null;
+  /**
+   * Tahap verifikasi butir ini (FR1). Hanya `aktif` yang sampai ke murid, dan
+   * penjagaannya ada di sumber undian (`practice_draw_questions`, migrasi tera
+   * 141) — bukan di layar ini. Opsional di tipe karena kolomnya menyusul, sama
+   * seperti `bloom_level`. Lihat `lib/verifikasi.ts`.
+   */
+  status_verifikasi?: StatusVerifikasi | null;
+  /**
+   * Metadata pengukuran (migrasi tera 141). Hanya ada di bank, tidak di
+   * `questions` — soal di dalam paket adalah salinan untuk dikerjakan,
+   * sementara yang dikalibrasi adalah butir di banknya. Lihat
+   * `lib/metadata-pengukuran.ts`.
+   */
+  penjelasan_per_opsi?: Record<string, string> | null;
+  pola_solo?: PolaSolo | null;
+  elemen_proses?: ElemenProses[] | null;
+  tag_konteks_pisa?: KonteksPisa | null;
+  sumber_pembuatan?: SumberPembuatan | null;
   /**
    * Boleh dikerjakan pelanggan langganan Tera — orang di luar bimbel yang
    * membayar untuk memakai SORA. Bawaannya false: bank soal ini disusun untuk
