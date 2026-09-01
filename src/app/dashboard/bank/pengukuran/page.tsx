@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { BLOOM_LEVELS } from "@/lib/bloom";
 import ImporPengukuran from "./ImporPengukuran";
+import TombolAktif from "./TombolAktif";
 import TombolSusun from "./TombolSusun";
 
 /**
@@ -75,6 +76,10 @@ export default async function PengukuranPage() {
   // yang sedang dikerjakan jadi sulit ditemukan.
   const bertopik = new Set(butir.map((b) => b.topik_id));
   const tampil = topik.filter((t) => t.aktif || bertopik.has(t.id));
+  // Sisa peta: ada di tabel, belum dibuka, belum diisi. Ditampilkan ringkas di
+  // bawah — dulu ia tidak muncul sama sekali, dan akibatnya seluruh peta tidak
+  // punya satu pun layar yang menunjukkannya.
+  const belumDibuka = topik.filter((t) => !t.aktif && !bertopik.has(t.id));
 
   return (
     <div>
@@ -117,7 +122,14 @@ export default async function PengukuranPage() {
                       {t.aktif ? "" : " · belum aktif"}
                     </p>
                   </div>
-                  <TombolSusun topikId={t.id} />
+                  <div className="flex flex-col items-end gap-2">
+                    <TombolSusun topikId={t.id} />
+                    <TombolAktif
+                      topikId={t.id}
+                      aktif={t.aktif}
+                      punyaPaket={paketnya.some((p) => (p.paket_topik_item[0]?.count ?? 0) > 0)}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid gap-6 px-5 py-4 sm:grid-cols-2">
@@ -184,6 +196,30 @@ export default async function PengukuranPage() {
             );
           })}
         </div>
+      )}
+
+      {belumDibuka.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-gray-900">Topik lain di peta</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            Ada di peta kompetensi tapi belum dibuka untuk murid dan belum punya butir. Ini rencana
+            jangka panjang Learning Progression, bukan pekerjaan yang tertinggal.
+          </p>
+
+          <ul className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl bg-white shadow ring-1 ring-gray-900/5">
+            {belumDibuka.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-gray-600">
+                    <span className="font-medium text-gray-800">{t.id}</span> — {t.nama}
+                  </p>
+                  <p className="text-xs text-gray-400">Kelas {t.jenjang_kelas}</p>
+                </div>
+                <TombolAktif topikId={t.id} aktif={false} punyaPaket={false} />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );
