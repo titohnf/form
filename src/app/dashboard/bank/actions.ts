@@ -130,10 +130,19 @@ export async function simpanSoalBaru(groupId: string, patch: QuestionPatch) {
  * impor yang boleh memintas alur verifikasi.
  */
 export async function addImportedBankItems(
-  groupId: string,
+  /**
+   * Bab kurikulum tujuannya, atau null untuk impor jalur pengukuran.
+   *
+   * Null bukan "lupa diisi": butir bertopik memang tidak punya bab, dan halaman
+   * Pengukuran mengimpor tanpa pernah menanyakannya. Menuntut bab di sana
+   * berarti menuntut jawaban yang akan diabaikan — dan pertanyaan yang
+   * jawabannya diabaikan mengajari orang bahwa isian di layar ini tidak berarti
+   * apa-apa.
+   */
+  groupId: string | null,
   items: (ImportedItem & Partial<ItemJson>)[],
 ) {
-  if (!groupId || items.length === 0) return 0;
+  if (items.length === 0) return 0;
 
   const supabase = await createClient();
   const {
@@ -215,7 +224,7 @@ export async function addImportedBankItems(
     );
   }
 
-  const perluTag = tanpaTopik ?? created;
+  const perluTag = groupId === null ? [] : (tanpaTopik ?? created);
   if (perluTag.length === 0) {
     revalidatePath("/dashboard/bank", "layout");
     return created.length;
@@ -223,7 +232,7 @@ export async function addImportedBankItems(
 
   const { error: tagError } = await supabase
     .from("question_curriculum_tags")
-    .insert(perluTag.map((row) => ({ question_bank_item_id: row.id, group_id: groupId })));
+    .insert(perluTag.map((row) => ({ question_bank_item_id: row.id, group_id: groupId! })));
   if (tagError) {
     throw new Error(
       `${created.length} soal tersimpan tapi topiknya gagal ditandai: ${tagError.message}. ` +

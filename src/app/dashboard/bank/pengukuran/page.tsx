@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { BLOOM_LEVELS } from "@/lib/bloom";
+import ImporPengukuran from "./ImporPengukuran";
 import TombolSusun from "./TombolSusun";
 
 /**
@@ -86,6 +87,9 @@ export default async function PengukuranPage() {
           Butir yang ditandai ke peta kompetensi, dan paket yang tersusun darinya. Butir di sini
           disajikan lewat peta — bukan lewat bab kurikulum.
         </p>
+        <div className="mt-4">
+          <ImporPengukuran />
+        </div>
       </div>
 
       {tampil.length === 0 ? (

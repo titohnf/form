@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { QUESTION_TYPE_LABEL } from "@/lib/types";
 import { parseImport, templatCsv, type ImportResult } from "@/lib/question-import";
-import { contohSoalJson, parseSoalJson, type BarisJson, type HasilJson } from "@/lib/soal-json";
+import {
+  contohSoalJson,
+  parseSoalJson,
+  type BarisJson,
+  type HasilJson,
+  type ItemJson,
+} from "@/lib/soal-json";
 import { useTopik } from "@/lib/topik";
 import { addImportedBankItems } from "./actions";
 import type { SubjectTopics } from "./BankItem";
@@ -26,8 +32,14 @@ import { Modal, TopicPicker } from "./TopicPicker";
  * halaman topik, atau dialog di halaman depan — yang tahu di mana ia berdiri.
  * `key`-nya groupId di sisi pemanggil, supaya berganti topik membuang hasil
  * baca topik sebelumnya alih-alih menyimpannya ke tempat yang salah.
+ *
+ * `groupId` null = JALUR PENGUKURAN. Butir bertopik tidak punya bab sejak
+ * migrasi tera 148, jadi halaman Pengukuran mengimpor tanpa menanyakannya. Di
+ * mode itu butir TANPA topik justru yang ditolak — ia tidak akan tersaji lewat
+ * jalur mana pun, dan menyimpannya diam-diam berarti soal yang hilang di
+ * database tanpa ada layar yang menampilkannya.
  */
-export function ImportPanel({ groupId }: { groupId: string }) {
+export function ImportPanel({ groupId }: { groupId: string | null }) {
   // Kode topik yang benar-benar ada, supaya naskah bertopik salah ketik ditolak
   // SAAT BACA — bukan saat insert, yang akan menggagalkan seluruh berkas gara-
   // gara satu baris dan tidak memberi tahu baris mana.
@@ -41,8 +53,18 @@ export function ImportPanel({ groupId }: { groupId: string }) {
   const [galat, setGalat] = useState<string | null>(null);
   const [tersimpan, setTersimpan] = useState<number | null>(null);
 
-  const siap = hasil?.rows.filter((r) => r.item) ?? [];
+  const tanpaBab = groupId === null;
+
+  // Di jalur pengukuran, butir tanpa `topik` diperlakukan seperti baris
+  // bermasalah: bukan galat berkasnya, tapi butir yang tidak punya tempat di
+  // halaman ini. Berkas CSV seluruhnya jatuh ke sini — bentuk itu memang tidak
+  // bisa membawa kode topik.
+  const berTopik = (r: { item: unknown }) =>
+    !tanpaBab || Boolean(r.item && "topik_id" in (r.item as object) && (r.item as ItemJson).topik_id);
+
+  const siap = hasil?.rows.filter((r) => r.item && berTopik(r)) ?? [];
   const bermasalah = hasil?.rows.filter((r) => !r.item) ?? [];
+  const tanpaTopik = hasil?.rows.filter((r) => r.item && !berTopik(r)) ?? [];
   // Hanya berkas JSON yang punya catatan — hal yang diabaikan tapi tidak
   // menghalangi penyimpanan. Dikatakan supaya data yang dibuang tidak hilang
   // diam-diam.
@@ -143,7 +165,9 @@ export function ImportPanel({ groupId }: { groupId: string }) {
 
       {tersimpan !== null && (
         <p className="rounded-lg bg-green-50 p-3 text-sm text-green-800">
-          {tersimpan} soal masuk ke topik ini.
+          {tanpaBab
+            ? `${tersimpan} soal tersimpan sebagai draf. Verifikasi dulu sebelum disusun jadi paket.`
+            : `${tersimpan} soal masuk ke topik ini.`}
         </p>
       )}
 
@@ -155,7 +179,22 @@ export function ImportPanel({ groupId }: { groupId: string }) {
         <div className="flex flex-col gap-2">
           <p className="text-sm">
             <span className="font-medium text-gray-900">{nama}</span> — {siap.length} soal siap
-            {bermasalah.length > 0 && (
+            {tanpaTopik.length > 0 && (
+            <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+              <li className="font-medium">
+                {tanpaTopik.length} butir tanpa topik pengukuran — tidak diimpor di sini. Butir
+                untuk bab kurikulum diimpor dari halaman Bank Soal.
+              </li>
+              {tanpaTopik.slice(0, 20).map((r) => (
+                <li key={r.nomor}>
+                  Butir {r.nomor}
+                  {r.prompt && <span className="text-amber-700"> ({potong(r.prompt)})</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {bermasalah.length > 0 && (
               <span className="text-amber-700">, {bermasalah.length} baris dilewati</span>
             )}
           </p>
