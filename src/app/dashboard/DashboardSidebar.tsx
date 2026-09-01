@@ -17,6 +17,14 @@ interface NavItem {
   icon: React.ReactNode;
   /** Menu asal yang diwakili item ini, dicocokkan dengan `?dari=` di editor. */
   kind?: "asesmen" | "paket";
+  /**
+   * Awalan rute yang BUKAN milik item ini meski berada di bawah `href`-nya.
+   *
+   * Ada karena Pengukuran tinggal di bawah `/dashboard/bank`: tanpa ini,
+   * membuka Pengukuran menyalakan dua menu sekaligus, dan menu yang menyala
+   * berdua tidak memberi tahu apa pun tentang di mana kita berada.
+   */
+  kecuali?: string;
 }
 
 export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
@@ -38,6 +46,7 @@ export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
           {
             href: "/dashboard/bank",
             label: "Bank Soal",
+            kecuali: "/dashboard/bank/pengukuran",
             icon: (
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -45,6 +54,25 @@ export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
                   strokeLinejoin="round"
                   strokeWidth={1.5}
                   d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                />
+              </svg>
+            ),
+          },
+          {
+            // Jalur peta kompetensi, bukan bab: butir yang ditandai topik
+            // pengukuran sengaja tidak lagi punya bab sejak migrasi tera 148,
+            // jadi ia tidak muncul di daftar Bank Soal sama sekali. Menu
+            // sendiri, karena halaman yang tidak bisa dicapai dari mana pun
+            // sama saja dengan halaman yang tidak ada.
+            href: "/dashboard/bank/pengukuran",
+            label: "Pengukuran",
+            icon: (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                 />
               </svg>
             ),
@@ -101,12 +129,14 @@ export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-        {nav.map(({ href, label, icon, kind }) => {
+        {nav.map(({ href, label, icon, kind, kecuali }) => {
           // Di dalam editor, yang menentukan adalah asalnya. Tanpa `?dari=`
           // (mis. tautan langsung) sengaja tidak ada yang menyala — lebih baik
           // daripada menyalakan menu yang keliru.
           const inEditor = pathname.startsWith("/dashboard/quizzes");
-          const isActive = inEditor ? !!kind && kind === from : pathname.startsWith(href);
+          const isActive = inEditor
+            ? !!kind && kind === from
+            : pathname.startsWith(href) && !(kecuali && pathname.startsWith(kecuali));
           return (
             <Link
               key={href}
