@@ -425,7 +425,20 @@ export default function BankItem({
         onChange={ubahMeta}
       />
 
-      {!topikDariAsal && (
+      {/* Butir yang diukur lewat peta kompetensi tidak ditandai ke bab
+          kurikulum: peta adalah satu-satunya jalur penyajiannya, dan tag bab
+          justru yang akan menyeretnya kembali ke latihan bebas. Database
+          menolaknya sejak migrasi tera 148 — di sini daftarnya diganti
+          keterangan, supaya penolakan itu tidak ditemui sebagai galat. */}
+      {!topikDariAsal && meta.topik_id && (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-gray-500">
+          Diukur sebagai <span className="font-medium text-slate-700">{meta.topik_id}</span>, jadi
+          soal ini disajikan lewat peta kompetensi — bukan lewat topik kurikulum. Kosongkan
+          &ldquo;Diukur sebagai&rdquo; di atas kalau memang mau ditandai ke bab.
+        </p>
+      )}
+
+      {!topikDariAsal && !meta.topik_id && (
         <details className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
           <summary className="cursor-pointer text-xs text-gray-500">
             Topik{" "}

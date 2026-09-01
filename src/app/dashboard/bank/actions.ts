@@ -182,9 +182,48 @@ export async function addImportedBankItems(
   }
   if (!created?.length) return 0;
 
+  // Butir yang punya topik pengukuran TIDAK ditandai ke grup kurikulum.
+  //
+  // Untuk butir itu, peta kompetensi adalah satu-satunya jalur penyajian —
+  // dan tag grup justru yang akan menyeretnya kembali ke latihan bebas,
+  // termasuk butir paket ujian yang kolamnya harus eksklusif. Database
+  // menolaknya sejak migrasi tera 148; di sini ia tidak dikirim sejak awal,
+  // supaya impor tidak gagal separuh jalan hanya untuk diberi tahu hal yang
+  // sudah kita ketahui.
+  //
+  // Bank Soal menjelajahi butir seperti ini lewat topiknya, bukan lewat bab.
+  //
+  // Mana yang bertopik ditanyakan ulang ke database, bukan dicocokkan dengan
+  // urutan `items` di sini: `insert ... returning` memang MENGEMBALIKAN baris
+  // sesuai urutan masuk dalam praktiknya, tapi itu tidak dijamin — dan kalau
+  // suatu saat meleset, akibatnya bukan galat melainkan butir ujian yang
+  // ditandai ke bab dan diam-diam bocor ke latihan bebas.
+  //
+  // Kalau pertanyaannya sendiri gagal, kita berhenti — menandai semua butir
+  // sebagai jalan pintas justru melakukan hal yang seharusnya dicegah.
+  // Kecuali satu hal: di database yang kolom `topik_id`-nya memang belum ada,
+  // tidak ada butir yang bisa bertopik, jadi semuanya memang perlu ditandai.
+  const { data: tanpaTopik, error: topikError } = await supabase
+    .from("question_bank_items")
+    .select("id")
+    .in("id", created.map((row) => row.id))
+    .is("topik_id", null);
+  if (topikError && !missingColumn(topikError, ["topik_id"])) {
+    throw new Error(
+      `${created.length} soal tersimpan tapi topiknya belum ditandai: ${topikError.message}. ` +
+        "Cari di bagian “Belum ditandai topik”.",
+    );
+  }
+
+  const perluTag = tanpaTopik ?? created;
+  if (perluTag.length === 0) {
+    revalidatePath("/dashboard/bank", "layout");
+    return created.length;
+  }
+
   const { error: tagError } = await supabase
     .from("question_curriculum_tags")
-    .insert(created.map((row) => ({ question_bank_item_id: row.id, group_id: groupId })));
+    .insert(perluTag.map((row) => ({ question_bank_item_id: row.id, group_id: groupId })));
   if (tagError) {
     throw new Error(
       `${created.length} soal tersimpan tapi topiknya gagal ditandai: ${tagError.message}. ` +
