@@ -92,8 +92,15 @@ const POLA_KODE_TOPIK = /^[A-F]{1,2}-[0-9]{2}$/;
  *   diberikan, kode di luar daftar ditolak SAAT BACA — bukan saat insert, yang
  *   akan menggagalkan seluruh berkas gara-gara satu baris. Kalau tidak
  *   diberikan (mis. tabelnya belum ada), yang diperiksa cuma bentuk kodenya.
+ * @param untukKurikulum Kalau true, field `topik` di JSON diabaikan — soal akan
+ *   ditandai ke topik kurikulum (groupId), bukan ke topik pengukuran. Pakai
+ *   ini saat impor dari halaman Bank Soal.
  */
-export function parseSoalJson(isi: string, kodeSah?: Set<string>): HasilJson {
+export function parseSoalJson(
+  isi: string,
+  kodeSah?: Set<string>,
+  untukKurikulum?: boolean,
+): HasilJson {
   let mentah: unknown;
   try {
     mentah = JSON.parse(isi);
@@ -111,10 +118,15 @@ export function parseSoalJson(isi: string, kodeSah?: Set<string>): HasilJson {
     return { rows: [], fatal: "Daftarnya kosong." };
   }
 
-  return { rows: mentah.map((butir, i) => bacaButir(butir, i + 1, kodeSah)), fatal: null };
+  return { rows: mentah.map((butir, i) => bacaButir(butir, i + 1, kodeSah, untukKurikulum)), fatal: null };
 }
 
-function bacaButir(mentah: unknown, nomor: number, kodeSah?: Set<string>): BarisJson {
+function bacaButir(
+  mentah: unknown,
+  nomor: number,
+  kodeSah?: Set<string>,
+  untukKurikulum?: boolean,
+): BarisJson {
   const b = (mentah ?? {}) as Record<string, unknown>;
   const prompt = teks(b.konten_soal);
   const gagal = (masalah: string): BarisJson => ({ nomor, prompt, item: null, masalah, catatan: null });
@@ -238,9 +250,20 @@ function bacaButir(mentah: unknown, nomor: number, kodeSah?: Set<string>): Baris
   // Topik pengukuran. Ditolak keras kalau salah, tidak diabaikan seperti
   // pola_solo: butir tanpa topik yang benar tidak ikut menghitung penguasaan
   // apa pun, dan itu kehilangan yang tidak terlihat di layar mana pun.
+  //
+  // Saat impor lewat halaman Bank Soal (`untukKurikulum`), field `topik` di
+  // JSON diabaikan: soal di halaman itu mendarat di topik kurikulum yang sudah
+  // dipilih pemakainya, bukan di pengukuran. Menghormati `topik` di sini akan
+  // memindahkan soal itu ke pengukuran — persis kebingungan yang membuat orang
+  // melaporkannya. Kode yang salah tetap dicatat supaya yang menulis naskah
+  // tahu fieldnya tidak terbaca.
   const topikTeks = teks(b.topik).toUpperCase();
   let topik_id: string | null = null;
-  if (topikTeks) {
+  if (topikTeks && untukKurikulum) {
+    catatan.push(
+      `topik "${topikTeks}" diabaikan — impor ke topik kurikulum yang dipilih, bukan pengukuran`,
+    );
+  } else if (topikTeks) {
     if (!POLA_KODE_TOPIK.test(topikTeks)) {
       return gagal(`topik "${topikTeks}" bukan kode yang sah — bentuknya seperti D-01`);
     }
@@ -294,7 +317,14 @@ function bacaButir(mentah: unknown, nomor: number, kodeSah?: Set<string>): Baris
 }
 
 /**
- * Contoh naskah JSON — satu butir per format yang didukung.
+ * Contoh naskah JSON — satu butir per format yang didukung, bergaya naskah
+ * pengukuran (membawa kode `topik`).
+ *
+ * Field `topik` (kode seperti `D-01`) mengarahkan butir ke topik PENGUKURAN —
+ * itulah yang dipakai saat impor dari halaman Pengukuran. Kalau butirnya
+ * untuk topik kurikulum di Bank Soal, field `topik` tidak perlu ada: saat
+ * diimpor dari halaman Bank Soal ia diabaikan, dan soal mendarat di topik
+ * kurikulum yang sudah dipilih pemakainya.
  *
  * Dibangkitkan dari berkas yang sama dengan pembacanya, dengan alasan yang
  * sama seperti templat CSV: contoh dan pembacanya tidak boleh berpisah, karena

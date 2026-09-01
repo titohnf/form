@@ -91,7 +91,15 @@ export function ImportPanel({ groupId }: { groupId: string | null }) {
     // yang rusak dan berkas JSON yang rusak menghasilkan keluhan yang berbeda,
     // dan menebak salah berarti mengeluh tentang berkas yang bukan miliknya.
     const kodeSah = topik.length > 0 ? new Set(topik.map((t) => t.id)) : undefined;
-    setHasil(/\.json$/i.test(file.name) ? parseSoalJson(isi, kodeSah) : parseImport(isi));
+    // `untukKurikulum` = groupId terisi (halaman Bank Soal/daftar topik).
+    // Di sana field `topik` JSON diabaikan supaya soal mendarat di topik
+    // kurikulum yang dipilih pemakainya, bukan di pengukuran. Di jalur
+    // pengukuran (groupId null) justru `topik` yang wajib.
+    setHasil(
+      /\.json$/i.test(file.name)
+        ? parseSoalJson(isi, kodeSah, !tanpaBab)
+        : parseImport(isi),
+    );
   }
 
   async function simpan() {
