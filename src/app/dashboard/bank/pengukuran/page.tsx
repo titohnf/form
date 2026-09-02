@@ -90,7 +90,8 @@ export default async function PengukuranPage() {
         <h1 className="mt-2 text-xl font-semibold text-gray-900">Pengukuran</h1>
         <p className="mt-1 text-sm text-gray-500">
           Butir yang ditandai ke peta kompetensi, dan paket yang tersusun darinya. Butir di sini
-          disajikan lewat peta — bukan lewat bab kurikulum.
+          disajikan lewat peta — bukan lewat bab kurikulum. Tekan nama topiknya untuk membaca dan
+          menyunting butirnya.
         </p>
         <div className="mt-4">
           <ImporPengukuran />
@@ -107,6 +108,11 @@ export default async function PengukuranPage() {
             const miliknya = butir.filter((b) => b.topik_id === t.id);
             const latihan = miliknya.filter((b) => (b.peruntukan ?? "latihan") === "latihan");
             const ujian = miliknya.filter((b) => b.peruntukan === "ujian");
+            // Kolam ketiga (migrasi tera 164). Tanpa baris ini butir probe
+            // tidak terhitung di mana pun di halaman ini — bukan latihan,
+            // bukan ujian — dan sepuluh butir yang sudah ditulis terbaca
+            // sebagai nol.
+            const probe = miliknya.filter((b) => b.peruntukan === "probe");
             const belumAktif = miliknya.filter((b) => b.status_verifikasi !== "aktif").length;
             const paketnya = paket.filter((p) => p.topik_id === t.id);
 
@@ -114,8 +120,16 @@ export default async function PengukuranPage() {
               <section key={t.id} className="rounded-xl bg-white shadow ring-1 ring-gray-900/5">
                 <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-3">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">
-                      {t.id} — {t.nama}
+                    {/* Tautan, bukan teks: sampai sekarang halaman ini
+                        menghitung butir tanpa menyediakan satu pun jalan
+                        menuju butirnya. */}
+                    <h2 className="text-sm font-semibold">
+                      <Link
+                        href={`/dashboard/bank/pengukuran/${t.id}`}
+                        className="text-gray-900 hover:text-blue-700 hover:underline"
+                      >
+                        {t.id} — {t.nama}
+                      </Link>
                     </h2>
                     <p className="mt-0.5 text-xs text-gray-400">
                       Kelas {t.jenjang_kelas}
@@ -157,6 +171,11 @@ export default async function PengukuranPage() {
                       <li>
                         Ujian: <span className="font-medium">{ujian.length}</span>
                       </li>
+                      {probe.length > 0 && (
+                        <li>
+                          Probe: <span className="font-medium">{probe.length}</span>
+                        </li>
+                      )}
                       {miliknya.length === 0 && (
                         <li className="text-gray-400">Belum ada butir yang ditandai ke topik ini.</li>
                       )}

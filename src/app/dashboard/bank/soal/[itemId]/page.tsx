@@ -54,12 +54,19 @@ export default async function SoalPage({
   // ditandai ke topik lain dari kartunya, dan tanpa nama itu tidak jelas ke
   // mana tombolnya akan membawa.
   const asal = dari ? groups.find((g) => g.id === dari) : undefined;
+  // `pengukuran:<topik>` — daftar butir sebuah topik peta kompetensi. Ia bukan
+  // grup kurikulum, jadi ia tidak akan pernah cocok di `groups` di atas, dan
+  // tanpa cabang ini orang yang menyunting butir pengukuran dipulangkan ke
+  // Bank Soal: halaman yang justru satu-satunya tempat butir itu TIDAK muncul.
+  const topikPeta = dari?.startsWith("pengukuran:") ? dari.slice("pengukuran:".length) : null;
   // "tanpa-topik" bukan topik, tapi tetap sebuah daftar yang bisa dipulangi.
   const kembali = asal
     ? { href: `/dashboard/bank/${asal.id}`, nama: asal.topic }
-    : dari === "tanpa-topik"
-      ? { href: "/dashboard/bank/tanpa-topik", nama: "Belum ditandai topik" }
-      : { href: "/dashboard/bank", nama: "Bank Soal" };
+    : topikPeta
+      ? { href: `/dashboard/bank/pengukuran/${topikPeta}`, nama: topikPeta }
+      : dari === "tanpa-topik"
+        ? { href: "/dashboard/bank/tanpa-topik", nama: "Belum ditandai topik" }
+        : { href: "/dashboard/bank", nama: "Bank Soal" };
 
   const mapel = asal
     ? subjects.find((s) => s.subjectId === asal.subject_id)?.subjectName
@@ -87,7 +94,7 @@ export default async function SoalPage({
         subjects={subjects}
         initialTaggedIds={tagged}
         selesai={kembali.href}
-        topikDariAsal={Boolean(asal)}
+        topikDariAsal={Boolean(asal) || Boolean(topikPeta)}
         judul={asal ? topicTrail(asal, mapel) : kembali.nama}
       />
     </div>

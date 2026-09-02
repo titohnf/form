@@ -392,6 +392,19 @@ export interface QuestionBankItem {
    * yang bukan instrumen ukur.
    */
   topik_id?: string | null;
+  /**
+   * Kolam tempat butir ini ditulis: `latihan`, `ujian`, atau `probe` (migrasi
+   * tera 142, diperluas 164). Ketiganya tidak boleh beririsan, dan pemisahan
+   * itu ditegakkan trigger di sana — kolom ini yang membuatnya terbaca tanpa
+   * menelusuri keanggotaan paket.
+   *
+   * Null berarti di luar cakupan pilot, BUKAN "belum diputuskan": ribuan butir
+   * latihan bebas Tera memang tidak ditulis untuk kolam mana pun. Pembacanya
+   * memperlakukan null sebagai `latihan` hanya untuk butir yang punya
+   * `topik_id`, karena di sana ia benar-benar berarti butir latihan yang
+   * ditulis sebelum kolomnya ada.
+   */
+  peruntukan?: "latihan" | "ujian" | "probe" | null;
   penjelasan_per_opsi?: Record<string, string> | null;
   pola_solo?: PolaSolo | null;
   elemen_proses?: ElemenProses[] | null;

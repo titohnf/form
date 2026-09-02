@@ -13,6 +13,18 @@ import BankItem from "../BankItem";
  * dibuka dari mana pun. Berdiri sendiri, bukan bagian tertutup di daftar
  * topik: ini keadaan yang harus dibereskan, bukan kategori yang perlu
  * ditelusuri.
+ *
+ * BUTIR PENGUKURAN DIKECUALIKAN, dan tanpa itu halaman ini berbohong. Butir
+ * ber-`topik_id` DILARANG punya tag kurikulum oleh trigger migrasi tera 148 —
+ * jadi selisih "tidak punya tag" menangkap seluruhnya, dan seluruh 54 butir
+ * pengukuran mendarat di halaman yang menyatakan isinya soal yang belum
+ * ditandai dan harus dibereskan. Keduanya salah: butir itu sudah ditandai, ke
+ * taksonomi yang berbeda, dan tidak ada yang perlu dibereskan padanya.
+ *
+ * Akibatnya lebih dari sekadar salah label. Yatim yang sungguhan — soal yang
+ * benar-benar terlupakan — tenggelam di antara puluhan butir yang sebenarnya
+ * sehat, dan halaman yang gunanya menunjukkan pekerjaan tersisa berhenti bisa
+ * dipakai untuk itu. Rumah butir pengukuran ada di `/dashboard/bank/pengukuran`.
  */
 export default async function UntaggedPage() {
   const supabase = await createClient();
@@ -42,7 +54,7 @@ export default async function UntaggedPage() {
   // keduanya berarti migrasi di repo Tera untuk satu halaman baca — jadi
   // selisihnya diambil di sini.
   const tagged = new Set(tags.map((t) => t.question_bank_item_id));
-  const untagged = items.filter((i) => !tagged.has(i.id));
+  const untagged = items.filter((i) => !tagged.has(i.id) && !i.topik_id);
 
   const subjects = bySubject(
     (groupRows ?? []) as CurriculumTopicGroup[],
@@ -66,7 +78,12 @@ export default async function UntaggedPage() {
 
       {untagged.length === 0 ? (
         <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-gray-500">
-          Semua soal sudah punya topik.
+          Semua soal sudah punya topik. Butir pengukuran tidak dihitung di sini — ia ditandai ke
+          peta kompetensi, bukan ke bab, dan rumahnya di{" "}
+          <Link href="/dashboard/bank/pengukuran" className="text-blue-700 underline">
+            Pengukuran
+          </Link>
+          .
         </p>
       ) : (
         <div className="flex flex-col gap-5">
