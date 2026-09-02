@@ -69,11 +69,17 @@ export default async function UntaggedPage() {
 
       <div>
         <h1 className="text-xl font-semibold text-gray-900">Belum ditandai topik</h1>
-        <p className="mt-1 max-w-2xl text-sm text-gray-500">
-          {untagged.length} soal tanpa topik. Selama begini, tidak satu pun akan muncul di Latihan
-          Soal murid di Tera, dan tidak bisa ditarik lewat pemilih topik saat menyusun paket. Tandai
-          topiknya lewat bagian “Topik” di tiap kartu.
-        </p>
+        {/* Peringatannya hanya muncul kalau memang ada yang perlu
+            diperingatkan. Nol soal yang disusul kalimat "selama begini, tidak
+            satu pun akan muncul" membaca sebagai ada yang salah, padahal
+            kosong justru keadaan yang dituju halaman ini. */}
+        {untagged.length > 0 && (
+          <p className="mt-1 max-w-2xl text-sm text-gray-500">
+            {untagged.length} soal tanpa topik. Selama begini, tidak satu pun akan muncul di Latihan
+            Soal murid di Tera, dan tidak bisa ditarik lewat pemilih topik saat menyusun paket.
+            Tandai topiknya lewat bagian “Topik” di tiap kartu.
+          </p>
+        )}
       </div>
 
       {untagged.length === 0 ? (

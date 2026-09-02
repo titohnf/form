@@ -34,6 +34,11 @@ export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
   // Daftar paket menyisipkan asalnya sebagai `?dari=`; pola yang sama dipakai
   // AdminSidebar di Tera untuk membedakan halaman yang berbagi rute.
   const from = useSearchParams().get("dari");
+  // Editor satu-soal berbagi rute dengan Bank Soal (`/dashboard/bank/soal/...`),
+  // jadi menyunting butir pengukuran menyalakan Bank Soal — menu yang justru
+  // satu-satunya tempat butir itu tidak muncul. `?dari=` yang membedakannya,
+  // pola yang sama dengan editor kuis di bawah.
+  const dariPengukuran = from?.startsWith("pengukuran:") ?? false;
 
   const nav: NavItem[] = [
     // Paling atas karena alur kerjanya mulai di sini: bahan mentah dulu, baru
@@ -136,7 +141,9 @@ export default function DashboardSidebar({ isTutor }: { isTutor: boolean }) {
           const inEditor = pathname.startsWith("/dashboard/quizzes");
           const isActive = inEditor
             ? !!kind && kind === from
-            : pathname.startsWith(href) && !(kecuali && pathname.startsWith(kecuali));
+            : dariPengukuran
+              ? href === "/dashboard/bank/pengukuran"
+              : pathname.startsWith(href) && !(kecuali && pathname.startsWith(kecuali));
           return (
             <Link
               key={href}

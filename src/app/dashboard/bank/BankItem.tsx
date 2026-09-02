@@ -312,7 +312,13 @@ export default function BankItem({
           >
             {LABEL_VERIFIKASI[status]}
           </span>
-          {tagged.length === 0 && (
+          {/* Peringatan ini menanyakan BAB kurikulum, jadi ia tidak berlaku
+              untuk butir yang ditandai ke peta kompetensi: butir ber-`topik_id`
+              justru DILARANG punya tag bab oleh trigger migrasi tera 148, dan
+              memperingatkannya berarti menuduh keadaan yang benar. Tanpa baris
+              ini, kelima puluh empat butir pengukuran memasang lencana oranye
+              yang tidak satu pun bisa dibereskan. */}
+          {tagged.length === 0 && !item.topik_id && (
             <span className="text-xs text-amber-600">Belum ditandai topik</span>
           )}
           {issue && <span className="text-xs text-amber-600">Belum lengkap — {issue}</span>}
