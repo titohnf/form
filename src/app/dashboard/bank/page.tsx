@@ -52,10 +52,13 @@ export default async function BankPage() {
   const { rows: items, truncated } = await fetchAllPages<{
     id: string;
     explanation: string | null;
+    topik_id: string | null;
   }>((from, to) =>
     supabase
       .from("question_bank_items")
-      .select("id, explanation")
+      // `topik_id` ikut semata untuk mengecualikan butir pengukuran dari
+      // hitungan "belum ditandai topik" di bawah — lihat alasannya di sana.
+      .select("id, explanation, topik_id")
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
       .range(from, to),
@@ -107,7 +110,14 @@ export default async function BankPage() {
   );
 
   const taggedIds = new Set(tags.map((t) => t.question_bank_item_id));
-  const untagged = items.filter((i) => !taggedIds.has(i.id)).length;
+  // BUTIR PENGUKURAN DIKECUALIKAN. Butir ber-`topik_id` DILARANG punya tag bab
+  // oleh trigger migrasi tera 148, jadi selisih "tidak punya tag" menangkap
+  // seluruhnya — dan spanduk di bawah akan berkata "54 soal belum ditandai
+  // topik" untuk 54 butir yang justru sudah ditandai, ke taksonomi yang
+  // berbeda. Spanduk yang menagih pekerjaan yang tidak ada adalah spanduk yang
+  // diabaikan, dan begitu ia diabaikan ia berhenti berguna untuk yatim yang
+  // sungguhan. Rumah butir pengukuran ada di `/dashboard/bank/pengukuran`.
+  const untagged = items.filter((i) => !taggedIds.has(i.id) && !i.topik_id).length;
 
   return (
     <div className="space-y-5">
