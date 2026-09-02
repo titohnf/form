@@ -79,6 +79,7 @@ export default function BankItem({
   selesai,
   topikDariAsal,
   judul,
+  ringkas = false,
 }: {
   item: QuestionBankItem;
   subjects: SubjectTopics[];
@@ -115,6 +116,22 @@ export default function BankItem({
    * depan mata adalah untuk siapa soal ini ditulis.
    */
   judul?: string;
+  /**
+   * Mulai terlipat: cuma pertanyaannya, tanpa pilihan jawaban, kunci, maupun
+   * lencana apa pun. Sekali diketuk, kartunya terbuka utuh.
+   *
+   * Diisi daftar yang panjang. Satu topik pengukuran membawa lima puluh empat
+   * butir, dan kartu yang membentang penuh membuat halamannya belasan layar —
+   * yang paling sering dilakukan orang di sana adalah MENELUSURI ("mana soal
+   * tentang kapal selam?"), dan menelusuri lima puluh empat pertanyaan jauh
+   * lebih cepat daripada menelusuri lima puluh empat pertanyaan yang
+   * masing-masing membawa empat pilihan jawaban dan tiga lencana.
+   *
+   * Tidak dipakai halaman satu-soal maupun daftar topik kurikulum: di sana
+   * kartunya memang sudah sedikit, dan melipatnya cuma menambah satu ketukan
+   * sebelum apa pun bisa dibaca.
+   */
+  ringkas?: boolean;
 }) {
   const router = useRouter();
   const [tagged, setTagged] = useState<string[]>(initialTaggedIds);
@@ -123,6 +140,8 @@ export default function BankItem({
   // klik di antara orang dan satu-satunya hal yang bisa dia lakukan di sana.
   const [editing, setEditing] = useState(!item.prompt.trim() || Boolean(selesai));
   const [confirmHapus, setConfirmHapus] = useState(false);
+  // Terbuka sejak awal kecuali kartunya memang diminta ringkas.
+  const [terbuka, setTerbuka] = useState(!ringkas);
   // Status verifikasi hidup terpisah dari `isi`: ia menyimpan seketika saat
   // ditekan, bukan ikut antre sampai "Simpan perubahan". Lihat
   // `ubahStatusVerifikasi` di actions.ts.
@@ -297,6 +316,30 @@ export default function BankItem({
     }
   }
 
+  if (!editing && ringkas && !terbuka) {
+    return (
+      <button
+        type="button"
+        onClick={() => setTerbuka(true)}
+        aria-expanded={false}
+        className="flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+      >
+        {/* Pertanyaannya saja. Yang disembunyikan bukan cuma jawabannya
+            melainkan seluruh lencana — tipe, level, status — karena di sebuah
+            daftar yang sudah dikelompokkan menurut kolam dan level, ketiganya
+            mengulang apa yang sudah tertulis di kepala kelompoknya. */}
+        <span className="min-w-0 flex-1 text-sm leading-relaxed text-gray-800">
+          {isi.prompt.trim() || (
+            <span className="text-amber-600">Pertanyaan masih kosong</span>
+          )}
+        </span>
+        <span aria-hidden className="mt-0.5 shrink-0 text-gray-300">
+          ▾
+        </span>
+      </button>
+    );
+  }
+
   if (!editing) {
     const issue = questionIssue(asQuestion);
     const bloom = bloomLabel(isi.bloom_level);
@@ -395,6 +438,20 @@ export default function BankItem({
         </div>
 
         <QuestionPreview question={asQuestion} />
+
+        {/* Hanya untuk kartu yang memang bisa dilipat. Tanpa jalan menutup,
+            membuka sepuluh kartu berarti halaman yang tidak bisa dikembalikan
+            ke bentuk yang mudah ditelusuri tanpa memuat ulang. */}
+        {ringkas && (
+          <button
+            type="button"
+            onClick={() => setTerbuka(false)}
+            aria-expanded
+            className="mt-4 text-xs font-medium text-gray-400 hover:text-gray-700 hover:underline"
+          >
+            ▴ Tutup
+          </button>
+        )}
       </article>
     );
   }

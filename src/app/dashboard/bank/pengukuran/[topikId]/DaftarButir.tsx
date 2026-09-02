@@ -149,10 +149,15 @@ export default function DaftarButir({
 
           return (
             <section key={key} className="space-y-3">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">
+              {/* Kepala kolam naik jadi judul yang sungguhan. Kartu yang
+                  terlipat membuat baris-barisnya seragam dan rapat, dan di
+                  antara baris seragam itu pembatas yang tipis berhenti
+                  terbaca sebagai pembatas — orang menggulir melewatinya tanpa
+                  sadar sudah pindah dari Latihan ke Ujian. */}
+              <div className="border-b border-slate-200 pb-2">
+                <h2 className="text-base font-semibold text-gray-900">
                   {judul}{" "}
-                  <span className="font-normal text-gray-400">
+                  <span className="text-sm font-normal text-gray-400">
                     · {miliknya.length === total ? `${total} butir` : `${miliknya.length} dari ${total}`}
                   </span>
                 </h2>
@@ -164,10 +169,17 @@ export default function DaftarButir({
                 if (selevel.length === 0) return null;
                 return (
                   <div key={lvl.value} className="space-y-3">
-                    <p className="text-xs font-medium text-gray-500">
-                      {lvl.code} — {lvl.label}{" "}
-                      <span className="text-gray-400">· {selevel.length}</span>
-                    </p>
+                    {/* Kodenya sebagai lencana, bukan teks. Ia penanda yang
+                        dicari mata saat menggulir — "sampai mana C2-nya" —
+                        dan sebagai teks abu-abu kecil ia punya berat yang
+                        sama dengan keterangan di sekelilingnya. */}
+                    <div className="flex items-baseline gap-2 pt-1">
+                      <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                        {lvl.code}
+                      </span>
+                      <span className="text-sm font-medium text-gray-700">{lvl.label}</span>
+                      <span className="text-xs text-gray-400">· {selevel.length} butir</span>
+                    </div>
                     {selevel.map((item) => (
                       <Kartu key={item.id} item={item} topikId={topikId} />
                     ))}
@@ -180,9 +192,17 @@ export default function DaftarButir({
                   alih-alih diam-diam ikut terdaftar di bawah level lain. */}
               {miliknya.some((b) => b.bloom_level == null) && (
                 <div className="space-y-3">
-                  <p className="text-xs font-medium text-amber-600">
-                    Tanpa level Bloom — tidak akan masuk paket mana pun
-                  </p>
+                  <div className="flex items-baseline gap-2 pt-1">
+                    <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      —
+                    </span>
+                    <span className="text-sm font-medium text-amber-700">
+                      Tanpa level Bloom
+                    </span>
+                    <span className="text-xs text-amber-600">
+                      · tidak akan masuk paket mana pun
+                    </span>
+                  </div>
                   {miliknya
                     .filter((b) => b.bloom_level == null)
                     .map((item) => (
@@ -206,6 +226,7 @@ function Kartu({ item, topikId }: { item: QuestionBankItem; topikId: string }) {
         subjects={[]}
         initialTaggedIds={[]}
         topikDariAsal
+        ringkas
         editHref={`/dashboard/bank/soal/${item.id}?dari=pengukuran:${topikId}`}
       />
     </div>
