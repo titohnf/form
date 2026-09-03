@@ -139,7 +139,8 @@ export function ImportPanel({ groupId }: { groupId: string | null }) {
         <b>CSV</b> — satu baris satu soal, nama kolom di baris pertama; Excel: Simpan Sebagai → CSV.
         <br />
         <b>JSON</b> — daftar butir bergaya naskah soal, membawa penjelasan per opsi dan metadata
-        pengukuran yang tidak muat di CSV.{" "}
+        pengukuran yang tidak muat di CSV. Naskah yang memakai nama kolom database (<code>type</code>,{" "}
+        <code>prompt</code>) dan dibungkus <code>{"{ topik_id, butir }"}</code> juga dibaca.{" "}
         <button
           type="button"
           onClick={() => unduh(contohSoalJson(), "contoh-soal.json", "application/json;charset=utf-8")}

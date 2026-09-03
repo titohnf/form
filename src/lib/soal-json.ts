@@ -4,7 +4,7 @@ import type {
   QuestionType,
   StatementGridGradingMode,
 } from "@/lib/types";
-import type { ElemenProses, PolaSolo, SumberPembuatan } from "@/lib/metadata-pengukuran";
+import type { ElemenProses, KonteksPisa, PolaSolo, SumberPembuatan } from "@/lib/metadata-pengukuran";
 import type { ImportRow } from "@/lib/question-import";
 
 /**
@@ -34,7 +34,17 @@ const FORMAT: Record<string, QuestionType> = {
   kisi_pernyataan: "statement_grid",
   menjodohkan: "matching",
   mengurutkan: "ordering",
+  isian_rumpang: "fill_blank",
 };
+
+/**
+ * Arah sebaliknya, untuk naskah yang ditulis memakai nama KOLOM database
+ * (`type: "mcq_single"`) alih-alih nama naskah (`format: "pg_tunggal"`).
+ * Lihat `normalisasiKolom()` di bawah.
+ */
+const FORMAT_DARI_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(FORMAT).map(([naskah, type]) => [type, naskah]),
+);
 
 /**
  * Kata yang dibaca sebagai benar atau salah.
@@ -75,6 +85,8 @@ const ELEMEN_SAH = new Set([
 
 const SOLO_SAH = new Set(["unistruktural", "multistruktural", "relasional"]);
 
+const PISA_SAH = new Set(["personal", "occupational", "societal", "scientific"]);
+
 /**
  * Satu butir siap simpan. Memperluas bentuk impor CSV dengan metadata
  * pengukuran dan peruntukan kolam — dua hal yang tidak muat di CSV.
@@ -91,6 +103,7 @@ export interface ItemJson {
   pola_solo: PolaSolo | null;
   elemen_proses: ElemenProses[] | null;
   label_kategori: { positif: string; negatif: string } | null;
+  tag_konteks_pisa: KonteksPisa | null;
   sumber_pembuatan: SumberPembuatan;
   peruntukan: "latihan" | "ujian" | "probe" | null;
   /** Topik pengukuran (Learning Progression). Tepat satu, atau null. */
@@ -149,14 +162,161 @@ export function parseSoalJson(
     };
   }
 
-  if (!Array.isArray(mentah)) {
-    return { rows: [], fatal: "Isinya harus berupa daftar soal, dibuka dengan [ dan ditutup dengan ]." };
+  // DUA BUNGKUS DITERIMA. Naskah yang ditulis di sini berupa daftar telanjang;
+  // naskah yang disusun di repo tera datang berbungkus `{ topik_id, butir }`,
+  // dengan topiknya disebut SEKALI di luar alih-alih diulang di tiap butir.
+  // Menolak yang kedua berarti menyuruh orang menyunting berkas yang isinya
+  // sudah benar hanya supaya bungkusnya cocok — dan pesan penolakannya pun
+  // ("harus dibuka dengan [") tidak pernah menyebut apa yang sebenarnya kurang.
+  let daftar: unknown[];
+  let topikBungkus = "";
+  if (Array.isArray(mentah)) {
+    daftar = mentah;
+  } else {
+    const bungkus = (mentah ?? {}) as Record<string, unknown>;
+    if (!Array.isArray(bungkus.butir)) {
+      return {
+        rows: [],
+        fatal:
+          'Isinya harus berupa daftar soal — dibuka dengan [ dan ditutup dengan ], ' +
+          'atau berupa objek yang punya daftar "butir".',
+      };
+    }
+    daftar = bungkus.butir;
+    topikBungkus = teks(bungkus.topik_id);
   }
-  if (mentah.length === 0) {
+
+  if (daftar.length === 0) {
     return { rows: [], fatal: "Daftarnya kosong." };
   }
 
-  return { rows: mentah.map((butir, i) => bacaButir(butir, i + 1, kodeSah, untukKurikulum)), fatal: null };
+  return {
+    rows: daftar.map((butir, i) =>
+      bacaButir(normalisasiKolom(butir, topikBungkus), i + 1, kodeSah, untukKurikulum),
+    ),
+    fatal: null,
+  };
+}
+
+/**
+ * Menerjemahkan butir yang ditulis memakai NAMA KOLOM database ke nama naskah.
+ *
+ * Dua dialek beredar untuk isi yang sama. Naskah (`format`, `konten_soal`,
+ * `kunci_jawaban`) ditulis mengikuti Skema Data Sistem, dan itu yang dibaca
+ * berkas ini sejak awal. Dialek kolom (`type`, `prompt`, `correct_answer`)
+ * ditulis mengikuti kolom `question_bank_items` apa adanya, dan itu yang keluar
+ * dari alat penyusun di repo tera.
+ *
+ * SATU PEMBACA, BUKAN DUA. Yang diterjemahkan cuma namanya; seluruh
+ * pemeriksaan — kunci yang harus benar-benar salah satu opsinya, kisi yang
+ * kuncinya harus sebanyak pernyataannya, urutan yang tidak boleh berisi item
+ * kembar — tetap satu tempat. Dua pembaca berarti dua daftar syarat yang suatu
+ * hari akan berbeda pendapat, dan bedanya baru ketahuan lewat butir yang tidak
+ * pernah bisa dijawab benar.
+ *
+ * Butir yang sudah bernaskah dikembalikan apa adanya; yang dikenali sebagai
+ * dialek kolom hanyalah yang menyebut `type`.
+ */
+function normalisasiKolom(mentah: unknown, topikBungkus: string): unknown {
+  const b = (mentah ?? {}) as Record<string, unknown>;
+  if (typeof b.type !== "string" || b.format !== undefined) return mentah;
+
+  const opsi = (b.options ?? null) as Record<string, unknown> | null;
+  const kunci = b.correct_answer;
+  const naskah: Record<string, unknown> = {
+    format: FORMAT_DARI_TYPE[b.type] ?? b.type,
+    konten_soal: b.prompt,
+    // Level ditulis "C3" di naskah dan angka 3 di kolom.
+    level_bloom: typeof b.bloom_level === "number" ? `C${b.bloom_level}` : b.bloom_level,
+    paket: b.peruntukan,
+    bobot: b.weight,
+    pembahasan: b.explanation,
+    pola_solo: b.pola_solo,
+    elemen_proses: b.elemen_proses,
+    tag_konteks_pisa: b.tag_konteks_pisa,
+    sumber_pembuatan: b.sumber_pembuatan,
+  };
+
+  // Topik: yang disebut butirnya menang atas yang disebut bungkusnya, dan
+  // `null` yang ditulis sengaja tetap berarti "tidak bertopik" — bukan celah
+  // untuk diisi bungkusnya.
+  naskah.topik = "topik_id" in b ? b.topik_id : topikBungkus || undefined;
+
+  switch (b.type) {
+    case "mcq_single":
+    case "mcq_multi":
+      naskah.opsi = opsi?.choices;
+      naskah.kunci_jawaban = kunci;
+      break;
+    case "true_false": {
+      // Kolomnya menyimpan teks "true"/"false"; naskahnya menyebut labelnya.
+      //
+      // Labelnya SELALU diisi, bawaannya Benar/Salah. Di dialek kolom, dua slot
+      // `penjelasan_per_opsi` sebuah butir Benar-Salah memang berarti [benar,
+      // salah]; tanpa dua label, pembacanya tidak punya daftar untuk
+      // menempelkannya dan penjelasan per pilihan itu akan luruh jadi satu
+      // paragraf pembahasan — analisis distraktornya hilang tanpa ada yang
+      // memberi tahu.
+      const label = (b.label_kategori ?? null) as Record<string, unknown> | null;
+      naskah.opsi = [teks(label?.positif) || "Benar", teks(label?.negatif) || "Salah"];
+      naskah.kunci_jawaban = kunci === "true" || kunci === true ? "benar" : "salah";
+      break;
+    }
+    case "short_answer":
+      // Beberapa ejaan yang sama-sama diterima: array di kolom, dipisah "|" di
+      // naskah. Diberikan sebagai array — pembacanya menerima keduanya.
+      naskah.kunci_jawaban = kunci;
+      break;
+    case "fill_blank":
+      naskah.kunci_jawaban = kunci;
+      break;
+    case "statement_grid": {
+      const k = (kunci ?? {}) as Record<string, unknown>;
+      naskah.pernyataan = opsi?.statements;
+      naskah.label_jawaban = opsi?.answer_labels;
+      naskah.label_pernyataan = opsi?.statement_label;
+      naskah.kunci_jawaban = k.answers;
+      naskah.mode_penilaian = k.grading_mode === "all_or_nothing" ? "semua_atau_tidak" : "proporsional";
+      break;
+    }
+    case "true_false_two_tier": {
+      const k = (kunci ?? {}) as Record<string, unknown>;
+      naskah.alasan = opsi?.tier2_choices;
+      naskah.pertanyaan_alasan = opsi?.tier2_prompt;
+      naskah.kunci_jawaban = {
+        tingkat1: k.tier1 === "true" || k.tier1 === true ? "benar" : "salah",
+        tingkat2: k.tier2,
+      };
+      if (k.skor_sebagian !== undefined) naskah.skor_sebagian = k.skor_sebagian;
+      break;
+    }
+    case "matching":
+      naskah.pasangan = Array.isArray(opsi?.pairs)
+        ? (opsi.pairs as Record<string, unknown>[]).map((p) => ({ kiri: p?.left, kanan: p?.right }))
+        : undefined;
+      break;
+    case "ordering":
+      naskah.urutan = opsi?.items;
+      break;
+  }
+
+  // `penjelasan_per_opsi` berkunci indeks di kolom (`{"0": "..."}`), berurut di
+  // naskah. Yang dibaca indeksnya, bukan urutan penulisannya — objek JSON tidak
+  // menjanjikan urutan.
+  if (b.penjelasan_per_opsi && !Array.isArray(b.penjelasan_per_opsi)) {
+    const peta = b.penjelasan_per_opsi as Record<string, unknown>;
+    const indeks = Object.keys(peta)
+      .map((k) => Number(k))
+      .filter((n) => Number.isInteger(n) && n >= 0);
+    if (indeks.length > 0) {
+      const panjang = Math.max(...indeks) + 1;
+      naskah.penjelasan_per_opsi = Array.from({ length: panjang }, (_, i) => peta[String(i)] ?? "");
+    }
+  } else if (Array.isArray(b.penjelasan_per_opsi)) {
+    naskah.penjelasan_per_opsi = b.penjelasan_per_opsi;
+  }
+
+  return naskah;
 }
 
 function bacaButir(
@@ -368,9 +528,33 @@ function bacaButir(
     options = { items: urutan };
     correct_answer = null;
     sejajar = [];
+  } else if (type === "fill_blank") {
+    // Satu kunci per rumpang, urut. Layar murid memecah pertanyaannya pada
+    // "___", jadi jumlah rumpang di naskah ADALAH jumlah kotak yang dilihat
+    // anak; kunci yang lebih sedikit menyisakan kotak yang tidak pernah bisa
+    // benar, dan yang lebih banyak menilai kotak yang tidak pernah ada.
+    const daftar = Array.isArray(b.kunci_jawaban)
+      ? b.kunci_jawaban.map((k) => teks(k)).filter(Boolean)
+      : teks(b.kunci_jawaban)
+          .split("|")
+          .map((k) => k.trim())
+          .filter(Boolean);
+    if (daftar.length === 0) return gagal("kunci_jawaban kosong");
+    const rumpang = (prompt.match(/___/g) ?? []).length;
+    if (rumpang !== daftar.length) {
+      return gagal(
+        `ada ${rumpang} rumpang "___" di konten_soal tapi ${daftar.length} kunci — harus sama banyak dan urut`,
+      );
+    }
+    correct_answer = daftar;
+    // Tidak ada daftar pilihan untuk ditempeli: penjelasannya jadi pembahasan
+    // umum, sama seperti isian angka.
+    sejajar = [];
   } else {
     // short_answer — beberapa ejaan yang sama-sama diterima dipisah "|".
-    const kunci = teks(b.kunci_jawaban);
+    const kunci = Array.isArray(b.kunci_jawaban)
+      ? b.kunci_jawaban.map((k) => teks(k)).filter(Boolean).join("|")
+      : teks(b.kunci_jawaban);
     if (!kunci) return gagal("kunci_jawaban kosong");
     correct_answer = kunci
       .split("|")
@@ -420,6 +604,15 @@ function bacaButir(
     if (!SOLO_SAH.has(soloTeks)) catatan.push(`pola_solo "${soloTeks}" tidak dikenali, diabaikan`);
     else if (type !== "mcq_multi") catatan.push("pola_solo diabaikan — hanya bermakna untuk multi-select");
     else pola_solo = soloTeks as PolaSolo;
+  }
+
+  // Konteks gaya PISA. Diabaikan-dengan-dikatakan kalau tidak dikenali, sama
+  // seperti pola SOLO: ia keterangan butir, bukan syarat butirnya bisa dipakai.
+  const pisaTeks = teks(b.tag_konteks_pisa).toLowerCase();
+  let tag_konteks_pisa: KonteksPisa | null = null;
+  if (pisaTeks) {
+    if (!PISA_SAH.has(pisaTeks)) catatan.push(`tag_konteks_pisa "${pisaTeks}" tidak dikenali, diabaikan`);
+    else tag_konteks_pisa = pisaTeks as KonteksPisa;
   }
 
   const elemenMentah = Array.isArray(b.elemen_proses) ? b.elemen_proses.map((e) => teks(e)) : [];
@@ -483,6 +676,7 @@ function bacaButir(
       pola_solo,
       elemen_proses: elemen.length > 0 ? (elemen as ElemenProses[]) : null,
       label_kategori,
+      tag_konteks_pisa,
       // Bawaannya draf AI: jalur JSON inilah alur produksi berbantuan AI di
       // dokumen fondasi Bagian 3.12, dan naskah yang ditulis tangan lebih
       // sering datang lewat CSV. Bisa ditimpa per butir lewat field
@@ -575,6 +769,18 @@ export function contohSoalJson(): string {
         kunci_jawaban: "0",
         // Tanpa opsi, penjelasannya jadi pembahasan umum.
         penjelasan_per_opsi: ["Jawaban benar: 0. Keduanya bilangan berlawanan, jadi jumlahnya nol."],
+        topik: "D-01",
+        paket: "latihan",
+      },
+      {
+        level_bloom: "C2",
+        format: "isian_rumpang",
+        // Tiap "___" di konten_soal jadi satu kotak isian, dan kuncinya ditulis
+        // urut sebanyak kotaknya. Tiap kotak dinilai sendiri: mengisi satu
+        // dengan benar tetap mendapat sebagian bobotnya.
+        konten_soal: "Lengkapi: (-8) + 5 = ___, lalu hasilnya dikali (-2) menjadi ___.",
+        kunci_jawaban: ["-3", "6"],
+        penjelasan_per_opsi: ["Langkah pertama menjumlah beda tanda, langkah kedua mengalikan dua bilangan berbeda tanda."],
         topik: "D-01",
         paket: "latihan",
       },

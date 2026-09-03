@@ -239,6 +239,7 @@ export async function addImportedBankItems(
     pola_solo: q.pola_solo,
     elemen_proses: q.elemen_proses,
     label_kategori: q.label_kategori,
+    tag_konteks_pisa: q.tag_konteks_pisa,
     sumber_pembuatan: q.sumber_pembuatan,
     peruntukan: q.peruntukan,
     topik_id: q.topik_id,
@@ -296,6 +297,34 @@ export async function addImportedBankItems(
       `${created.length} soal tersimpan tapi topiknya belum ditandai: ${topikError.message}. ` +
         "Cari di bagian “Belum ditandai topik”.",
     );
+  }
+
+  // KOLAM PROBE PUNYA TABEL KEANGGOTAANNYA SENDIRI (migrasi tera 164), dan
+  // `retest_buka_sesi` mengundi dari SANA — bukan dari `peruntukan`. Butir probe
+  // yang hanya berlabel tanpa terdaftar adalah kolam yang terlihat penuh di
+  // layar Pengukuran sementara retestnya tidak pernah bisa dibuka, dan tidak ada
+  // satu layar pun yang mengatakan kenapa.
+  const { data: butirProbe, error: probeError } = await supabase
+    .from("question_bank_items")
+    .select("id, topik_id")
+    .in("id", created.map((row) => row.id))
+    .eq("peruntukan", "probe")
+    .not("topik_id", "is", null);
+  if (probeError && !missingColumn(probeError, ["peruntukan", "topik_id"])) {
+    throw new Error(
+      `${created.length} soal tersimpan tapi kolam probenya belum diperiksa: ${probeError.message}.`,
+    );
+  }
+  if (butirProbe?.length) {
+    const { error: daftarError } = await supabase.from("item_probe").insert(
+      butirProbe.map((row) => ({ topik_id: row.topik_id, question_bank_item_id: row.id })),
+    );
+    if (daftarError) {
+      throw new Error(
+        `${created.length} soal tersimpan, tapi ${butirProbe.length} butir probe belum terdaftar ` +
+          `di kolamnya: ${daftarError.message}. Retest topik itu belum bisa dibuka sampai itu beres.`,
+      );
+    }
   }
 
   const perluTag = groupId === null ? [] : (tanpaTopik ?? created);
