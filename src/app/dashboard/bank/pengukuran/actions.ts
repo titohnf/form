@@ -69,3 +69,45 @@ export async function setAktifTopik(
   revalidatePath("/dashboard/bank/pengukuran");
   return aktif ? `${topikId} dibuka untuk murid.` : `${topikId} ditutup dari peta murid.`;
 }
+
+/**
+ * Mengaktifkan seluruh butir draf sebuah topik sekaligus.
+ *
+ * SATU KLIK UNTUK SATU NASKAH, bukan satu klik per butir. Naskah masuk
+ * berombongan — satu topik utuh sekali impor, 46 butir untuk D-01 — dan yang
+ * diputuskan orang sesudah membacanya juga satu: naskah ini boleh dikerjakan
+ * murid. Menyuruhnya menekan tombol yang sama 46 kali bukan pemeriksaan
+ * tambahan, cuma pengulangan; yang benar-benar memeriksa tiap butir adalah
+ * pemeriksa impor, dan itu sudah jalan sebelum butirnya sampai ke sini.
+ *
+ * YANG DISENTUH HANYA `draf`. Butir yang DITARIK sengaja tidak ikut: ia
+ * dihentikan karena ada yang salah padanya, dan menghidupkannya kembali lewat
+ * tombol massal adalah cara paling mudah mengembalikan kesalahan yang baru saja
+ * dihentikan tanpa ada yang menyadarinya. Trigger di database (migrasi tera
+ * 185) menolaknya juga — di sini ia tidak diminta sejak awal, supaya seluruh
+ * aksinya tidak gagal gara-gara satu butir yang memang tidak boleh ikut.
+ */
+export async function aktifkanSemuaDraf(
+  _sebelumnya: string | null,
+  formData: FormData,
+): Promise<string> {
+  const topikId = String(formData.get("topikId") ?? "");
+  if (!topikId) return "Topik tidak dikenali.";
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("question_bank_items")
+    .update({ status_verifikasi: "aktif" })
+    .eq("topik_id", topikId)
+    .eq("status_verifikasi", "draf")
+    .select("id");
+
+  if (error) return `Gagal mengaktifkan: ${error.message}`;
+
+  const jumlah = data?.length ?? 0;
+  revalidatePath("/dashboard/bank/pengukuran");
+  revalidatePath(`/dashboard/bank/pengukuran/${topikId}`);
+
+  if (jumlah === 0) return "Tidak ada butir draf di topik ini.";
+  return `${jumlah} butir aktif. Sekarang bisa dikerjakan murid.`;
+}

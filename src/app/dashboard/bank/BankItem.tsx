@@ -27,14 +27,11 @@ import {
 } from "./actions";
 
 /**
- * Warna tiap tahap. Hijau hanya untuk `aktif` — satu-satunya tahap yang berarti
- * soalnya sampai ke murid; sisanya sengaja netral supaya "hampir selesai" tidak
- * terbaca seperti "sudah beres".
+ * Warna tiap keadaan. Hijau hanya untuk `aktif` — satu-satunya yang berarti
+ * soalnya sampai ke murid.
  */
 const WARNA_STATUS: Record<StatusVerifikasi, string> = {
   draf: "bg-slate-100 text-slate-600",
-  terverifikasi_matematis: "bg-indigo-50 text-indigo-700",
-  direview_pedagogis: "bg-violet-50 text-violet-700",
   aktif: "bg-emerald-50 text-emerald-700",
   ditarik: "bg-rose-50 text-rose-700",
 };
@@ -414,11 +411,12 @@ export default function BankItem({
           </div>
         </div>
 
-        {/* Tahap verifikasi: satu baris, di atas soalnya.
-            Yang ditawarkan hanya langkah yang memang diizinkan dari tahap
-            sekarang — tombol "Aktifkan" tidak muncul untuk butir yang masih
-            draf, karena menawarkannya berarti menjanjikan sesuatu yang pasti
-            ditolak trigger di database. */}
+        {/* Keadaan butir: satu baris, di atas soalnya.
+            Butir draf diaktifkan sekali klik — dua tahap perantara dicabut di
+            migrasi tera 185, karena verifikasinya terjadi di luar sistem dan
+            mencatatnya di sini tidak menambah pemeriksaan apa pun. Yang tetap
+            tidak ditawarkan: menghidupkan butir yang DITARIK langsung jadi
+            aktif, karena itu memang ditolak trigger. */}
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-y border-slate-100 py-2">
           <span className="text-xs text-gray-500">{ARTI_VERIFIKASI[status]}</span>
           <div className="ml-auto flex flex-wrap items-center gap-3">
@@ -431,7 +429,7 @@ export default function BankItem({
                   ke === "ditarik" ? "text-gray-400 hover:text-red-600" : "text-blue-600"
                 }`}
               >
-                {ke === "ditarik" ? "Tarik" : `→ ${LABEL_VERIFIKASI[ke]}`}
+                {ke === "ditarik" ? "Tarik" : ke === "aktif" ? "Aktifkan" : `Kembalikan ke ${LABEL_VERIFIKASI[ke]}`}
               </button>
             ))}
           </div>

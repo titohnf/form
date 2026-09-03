@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { QuestionBankItem } from "@/lib/types";
 import DaftarButir from "./DaftarButir";
+import TombolAktifkan from "../TombolAktifkan";
 
 /**
  * Butir sebuah topik pengukuran, satu daftar yang bisa dibaca dan disunting.
@@ -49,6 +50,7 @@ export default async function ButirTopikPage({
   const butir = (butirRows ?? []) as QuestionBankItem[];
 
   const hrefBaru = `/dashboard/bank/soal/baru?topik=${topik.id}`;
+  const jumlahDraf = butir.filter((b) => (b.status_verifikasi ?? "draf") === "draf").length;
 
   return (
     <div className="space-y-5">
@@ -66,15 +68,21 @@ export default async function ButirTopikPage({
           </p>
         </div>
 
-        {/* Menulis satu butir dengan tangan tidak lagi harus lewat sebuah bab
-            kurikulum yang tidak ada hubungannya. Impor JSON tetap jalur utama
-            untuk naskah yang datang berpuluh sekaligus; ini untuk yang satu. */}
-        <Link
-          href={hrefBaru}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50"
-        >
-          + Butir baru
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Berdiri di halaman topiknya, bukan di daftar Pengukuran: yang
+              diaktifkan adalah naskah yang baru saja dibaca di halaman ini. */}
+          <TombolAktifkan topikId={topik.id} jumlahDraf={jumlahDraf} />
+
+          {/* Menulis satu butir dengan tangan tidak lagi harus lewat sebuah bab
+              kurikulum yang tidak ada hubungannya. Impor JSON tetap jalur utama
+              untuk naskah yang datang berpuluh sekaligus; ini untuk yang satu. */}
+          <Link
+            href={hrefBaru}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50"
+          >
+            + Butir baru
+          </Link>
+        </div>
       </div>
 
       {butir.length === 0 ? (
