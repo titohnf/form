@@ -5,11 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { missingColumn, without } from "@/lib/missing-column";
 import type { QuestionPatch } from "@/lib/types";
 import type { ImportedItem } from "@/lib/question-import";
-import { KOLOM_METADATA, type MetadataPengukuran } from "@/lib/metadata-pengukuran";
+import { KOLOM_METADATA, type MetadataPengukuran, type Peruntukan } from "@/lib/metadata-pengukuran";
 import type { ItemJson } from "@/lib/soal-json";
 
 /** Kolom yang menyusul lewat migrasi; boleh belum ada saat kode ini berjalan. */
-const OPTIONAL_COLUMNS = ["bloom_level", "peruntukan", ...KOLOM_METADATA];
+const OPTIONAL_COLUMNS = ["bloom_level", ...KOLOM_METADATA];
 
 /**
  * Menyimpan suntingan satu soal bank.
@@ -71,6 +71,80 @@ export async function saveBankItem(
  *
  * Topiknya wajib: soal tanpa topik tidak pernah muncul di Latihan Soal murid.
  */
+/**
+ * Butir pengukuran baru — ditulis langsung ke sebuah topik peta kompetensi,
+ * tanpa pernah menyinggung bab kurikulum.
+ *
+ * KENAPA TIDAK MENUMPANG `simpanSoalBaru`. Aksi itu MEWAJIBKAN `groupId` dan
+ * selalu menyisipkan `question_curriculum_tags` — sementara trigger migrasi
+ * tera 148 melarang butir ber-`topik_id` punya tag kurikulum sama sekali.
+ * Akibatnya, sampai hari ini butir pengukuran hanya bisa lahir lewat impor
+ * JSON, atau lewat jalan memutar: ditulis di sebuah bab yang tidak ada
+ * hubungannya, lalu diberi topik supaya triggernya membuang tag yang barusan
+ * dipasang. Jalan memutar itu bekerja, tapi ia mengajarkan bahwa bab yang
+ * ditanyakan di layar boleh diisi asal-asalan.
+ *
+ * LAHIR SEBAGAI `draf`, seperti butir mana pun (migrasi 141). Yang ditulis
+ * tangan di sini belum diverifikasi matematis oleh siapa pun, dan
+ * `topik_paket_items` hanya menyajikan butir aktif — jadi butir ini tidak akan
+ * sampai ke murid mana pun sampai seseorang menaikkannya sendiri.
+ *
+ * `peruntukan` ditanyakan di depan, bukan disusulkan: `semai_paket_topik`
+ * memperlakukan butir tanpa kolam sebagai butir latihan lewat `coalesce`, jadi
+ * butir ujian yang lupa diberi kolam tidak gagal — ia diam-diam masuk paket
+ * latihan, dan kolam ujian yang seharusnya eksklusif ikut bocor bersamanya.
+ */
+export async function simpanButirPengukuranBaru(
+  topikId: string,
+  patch: QuestionPatch,
+  peruntukan: Peruntukan | null,
+) {
+  if (!topikId) throw new Error("Topik pengukurannya belum ditentukan.");
+  if (!patch.prompt.trim()) throw new Error("Pertanyaannya masih kosong.");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sesi kamu sudah berakhir. Masuk lagi, lalu simpan ulang.");
+
+  const { branching: _branching, ...isi } = patch;
+  void _branching;
+
+  const dibuang: string[] = [];
+  let created: { id: string } | null = null;
+  for (let percobaan = 0; percobaan <= OPTIONAL_COLUMNS.length; percobaan += 1) {
+    const { data, error } = await supabase
+      .from("question_bank_items")
+      .insert(
+        without({ ...isi, created_by: user.id, topik_id: topikId, peruntukan }, dibuang),
+      )
+      .select("id")
+      .single();
+
+    if (!error) {
+      created = data;
+      break;
+    }
+    const hilang = missingColumn(error, OPTIONAL_COLUMNS);
+    // `topik_id` yang belum ada bukan kolom yang boleh dibuang di sini seperti
+    // di impor: membuangnya berarti menyimpan butir yang tidak diukur sebagai
+    // apa pun, di layar yang seluruh alasannya adalah topik itu.
+    if (!hilang || hilang === "topik_id") {
+      throw new Error(
+        hilang === "topik_id"
+          ? "Peta kompetensi belum ada di database ini (migrasi tera 143 belum jalan)."
+          : error.message,
+      );
+    }
+    dibuang.push(hilang);
+  }
+  if (!created) throw new Error("Butirnya gagal disimpan.");
+
+  revalidatePath("/dashboard/bank/pengukuran", "layout");
+  return created.id;
+}
+
 export async function simpanSoalBaru(groupId: string, patch: QuestionPatch) {
   if (!groupId) throw new Error("Topiknya belum ditentukan.");
   if (!patch.prompt.trim()) throw new Error("Pertanyaannya masih kosong.");

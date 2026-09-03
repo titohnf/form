@@ -3,8 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import type { Question, QuestionPatch } from "@/lib/types";
+import { PERUNTUKAN, type Peruntukan } from "@/lib/metadata-pengukuran";
 import QuestionEditor from "../../../quizzes/[id]/edit/QuestionEditor";
-import { simpanSoalBaru } from "../../actions";
+import { simpanButirPengukuranBaru, simpanSoalBaru } from "../../actions";
 
 /** Soal kosong yang belum pernah menyentuh database. */
 const KOSONG: Question = {
@@ -35,13 +36,20 @@ const KOSONG: Question = {
  * ditentukan lewat tombol yang membawa orang kemari, bobot baru punya arti di
  * dalam kuis, dan sesuatu yang belum tersimpan tidak bisa dihapus — cukup
  * ditinggalkan.
+ *
+ * DUA TUJUAN, SATU LAYAR. Soal bisa mendarat di bab kurikulum atau di topik
+ * peta kompetensi, dan keduanya dipisah tajam oleh database sejak migrasi tera
+ * 148 — satu butir tidak boleh punya keduanya. Yang membedakan cuma tujuannya;
+ * menulisnya sama saja, jadi menggandakan layar ini demi perbedaan itu berarti
+ * dua editor yang suatu hari akan berbeda perilaku.
  */
 export default function DraftItem({
-  groupId,
+  tujuan,
   judul,
   kembali,
 }: {
-  groupId: string;
+  /** Bab kurikulum, atau topik pengukuran. Tepat satu — tidak pernah keduanya. */
+  tujuan: { jenis: "grup"; id: string } | { jenis: "topik"; id: string };
   /** Label kartunya: jejak topik tempat soal ini akan mendarat. */
   judul: string;
   kembali: string;
@@ -62,6 +70,11 @@ export default function DraftItem({
   });
   const [menyimpan, setMenyimpan] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
+  // Kolam butir pengukuran. Bawaannya latihan, dan itu disebut di layar alih-
+  // alih dibiarkan kosong: `semai_paket_topik` memperlakukan butir tanpa kolam
+  // sebagai butir latihan, jadi "belum diisi" dan "latihan" berakibat sama —
+  // bedanya yang satu terbaca, yang satu lagi tidak.
+  const [peruntukan, setPeruntukan] = useState<Peruntukan>("latihan");
   const tulisSekarang = useRef<(() => Promise<void>) | null>(null);
 
   async function simpan() {
@@ -79,7 +92,11 @@ export default function DraftItem({
         setMenyimpan(false);
         return;
       }
-      await simpanSoalBaru(groupId, draf.current);
+      if (tujuan.jenis === "topik") {
+        await simpanButirPengukuranBaru(tujuan.id, draf.current, peruntukan);
+      } else {
+        await simpanSoalBaru(tujuan.id, draf.current);
+      }
       router.push(kembali);
     } catch (e) {
       setGalat(e instanceof Error ? e.message : "Gagal menyimpan soal.");
@@ -99,6 +116,29 @@ export default function DraftItem({
         tanpaBobot
         tanpaPenandaSimpan
       />
+
+      {/* Kolamnya di dekat tombol Simpan, bukan di atas editornya: ia keputusan
+          terakhir sebelum butirnya mendarat, dan satu-satunya di layar ini yang
+          bukan tentang isi soalnya. */}
+      {tujuan.jenis === "topik" && (
+        <label className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <span className="text-xs font-medium text-slate-700">Kolam</span>
+          <select
+            value={peruntukan}
+            onChange={(e) => setPeruntukan(e.target.value as Peruntukan)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm"
+          >
+            {PERUNTUKAN.map((k) => (
+              <option key={k.value} value={k.value}>
+                {k.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-gray-500">
+            {PERUNTUKAN.find((k) => k.value === peruntukan)?.arti}
+          </span>
+        </label>
+      )}
 
       {galat && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{galat}</p>}
 

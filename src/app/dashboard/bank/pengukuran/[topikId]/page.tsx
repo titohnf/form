@@ -48,25 +48,43 @@ export default async function ButirTopikPage({
 
   const butir = (butirRows ?? []) as QuestionBankItem[];
 
+  const hrefBaru = `/dashboard/bank/soal/baru?topik=${topik.id}`;
+
   return (
     <div className="space-y-5">
-      <div>
-        <Link href="/dashboard/bank/pengukuran" className="text-sm text-gray-500 hover:text-blue-700">
-          ← Pengukuran
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Link href="/dashboard/bank/pengukuran" className="text-sm text-gray-500 hover:text-blue-700">
+            ← Pengukuran
+          </Link>
+          <h1 className="mt-2 text-xl font-semibold text-gray-900">
+            {topik.id} — {topik.nama}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Kelas {topik.jenjang_kelas}
+            {topik.aktif ? "" : " · belum aktif"} · {butir.length} butir
+          </p>
+        </div>
+
+        {/* Menulis satu butir dengan tangan tidak lagi harus lewat sebuah bab
+            kurikulum yang tidak ada hubungannya. Impor JSON tetap jalur utama
+            untuk naskah yang datang berpuluh sekaligus; ini untuk yang satu. */}
+        <Link
+          href={hrefBaru}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50"
+        >
+          + Butir baru
         </Link>
-        <h1 className="mt-2 text-xl font-semibold text-gray-900">
-          {topik.id} — {topik.nama}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Kelas {topik.jenjang_kelas}
-          {topik.aktif ? "" : " · belum aktif"} · {butir.length} butir
-        </p>
       </div>
 
       {butir.length === 0 ? (
         <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-gray-500">
-          Belum ada butir yang ditandai ke topik ini. Butir masuk lewat impor JSON di halaman
-          Pengukuran.
+          Belum ada butir yang ditandai ke topik ini. Naskah berisi banyak butir masuk lewat impor
+          JSON di halaman Pengukuran; satu butir bisa ditulis langsung lewat{" "}
+          <Link href={hrefBaru} className="text-blue-700 underline">
+            Butir baru
+          </Link>
+          .
         </p>
       ) : (
         <DaftarButir butir={butir} topikId={topik.id} />
