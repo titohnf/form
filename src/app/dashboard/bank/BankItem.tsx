@@ -156,6 +156,7 @@ export default function BankItem({
   // ikut menandai kartu "kotor" saat diubah.
   const metaAwal: Metadata = {
     topik_id: item.topik_id ?? null,
+    peruntukan: item.peruntukan ?? null,
     penjelasan_per_opsi: item.penjelasan_per_opsi ?? null,
     pola_solo: item.pola_solo ?? null,
     elemen_proses: item.elemen_proses ?? null,
@@ -484,6 +485,7 @@ export default function BankItem({
         tipe={isi.type}
         opsi={isi.options}
         bloomLevel={isi.bloom_level}
+        peruntukanTersimpan={item.peruntukan ?? null}
         nilai={meta}
         onChange={ubahMeta}
       />

@@ -77,6 +77,41 @@ export const SUMBER_PEMBUATAN = [
 export type SumberPembuatan = (typeof SUMBER_PEMBUATAN)[number]["value"];
 
 /**
+ * Kolam tempat butir ini ditulis (migrasi tera 142, diperluas 168).
+ *
+ * Bukan sekadar label: `semai_paket_topik` menyusun paket latihan HANYA dari
+ * butir berperuntukan latihan, paket ujian hanya dari butir ujian, dan trigger
+ * `jaga_peruntukan_paket` menolak butir yang masuk ke kolam yang bukan
+ * miliknya. Butir probe tidak masuk paket mana pun — ia diambil sendiri oleh
+ * `retest_buka_sesi`.
+ *
+ * NULL berarti di luar cakupan pilot. Ia TIDAK sama dengan "latihan", meski
+ * `semai_paket_topik` memperlakukannya begitu lewat `coalesce`: yang null
+ * adalah butir yang ditulis sebelum kolamnya ada, dan menyamakan keduanya di
+ * layar berarti menyembunyikan butir yang sebenarnya belum pernah diputuskan
+ * masuk kolam mana.
+ */
+export const PERUNTUKAN = [
+  {
+    value: "latihan",
+    label: "Latihan",
+    arti: "Masuk paket bertingkat C1–C6, dikerjakan berulang sampai tuntas.",
+  },
+  {
+    value: "ujian",
+    label: "Ujian",
+    arti: "Satu putaran, tanpa retry. Tidak boleh beririsan dengan kolam latihan.",
+  },
+  {
+    value: "probe",
+    label: "Probe",
+    arti: "Retest berkala dan pemanasan sesudah jeda. Tidak masuk paket mana pun.",
+  },
+] as const;
+
+export type Peruntukan = (typeof PERUNTUKAN)[number]["value"];
+
+/**
  * Penjelasan tiap opsi, untuk analisis distraktor (dokumen fondasi 3.10).
  *
  * BERKUNCI INDEKS OPSI ("0", "1", …), bukan teks opsinya. Teks opsi berubah
@@ -95,6 +130,12 @@ export interface MetadataPengukuran {
    * migrasi tera 144 untuk alasan ia kolom dan bukan tabel.
    */
   topik_id: string | null;
+  /**
+   * Kolam butir ini. Hanya bermakna bersama `topik_id` — di luar peta
+   * kompetensi tidak ada paket yang menyusunnya, jadi tidak ada kolam yang
+   * perlu dipilih.
+   */
+  peruntukan: Peruntukan | null;
   penjelasan_per_opsi: PenjelasanPerOpsi | null;
   pola_solo: PolaSolo | null;
   elemen_proses: ElemenProses[] | null;
@@ -105,6 +146,7 @@ export interface MetadataPengukuran {
 /** Nilai awal untuk butir yang kolomnya masih kosong. */
 export const METADATA_KOSONG: MetadataPengukuran = {
   topik_id: null,
+  peruntukan: null,
   penjelasan_per_opsi: null,
   pola_solo: null,
   elemen_proses: null,
@@ -115,6 +157,7 @@ export const METADATA_KOSONG: MetadataPengukuran = {
 /** Kolom metadata yang boleh belum ada saat kode ini berjalan (pola `missing-column`). */
 export const KOLOM_METADATA = [
   "topik_id",
+  "peruntukan",
   "penjelasan_per_opsi",
   "pola_solo",
   "elemen_proses",

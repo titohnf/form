@@ -5,10 +5,12 @@ import { labelTopik, useTopik } from "@/lib/topik";
 import {
   ELEMEN_PROSES,
   KONTEKS_PISA,
+  PERUNTUKAN,
   POLA_SOLO,
   SUMBER_PEMBUATAN,
   type ElemenProses,
   type MetadataPengukuran as Metadata,
+  type Peruntukan,
 } from "@/lib/metadata-pengukuran";
 
 /**
@@ -29,12 +31,15 @@ export default function MetadataPengukuran({
   tipe,
   opsi,
   bloomLevel,
+  peruntukanTersimpan,
   nilai,
   onChange,
 }: {
   tipe: QuestionType;
   opsi: QuestionOptions;
   bloomLevel: number | null | undefined;
+  /** Kolam yang tersimpan di database, untuk membedakan "diubah" dari "sudah begitu". */
+  peruntukanTersimpan: Peruntukan | null;
   nilai: Metadata;
   onChange: (next: Metadata) => void;
 }) {
@@ -43,6 +48,11 @@ export default function MetadataPengukuran({
   const punyaOpsi = tipe === "mcq_single" || tipe === "mcq_multi";
   const multiSelect = tipe === "mcq_multi";
   const c4KeAtas = (bloomLevel ?? 0) >= 4;
+  const arti = PERUNTUKAN.find((k) => k.value === nilai.peruntukan)?.arti;
+  // Dibandingkan dengan kolam yang tersimpan, bukan dengan kolam yang sedang
+  // dipilih: peringatan "susun ulang paketnya" hanya benar kalau kolamnya
+  // memang berubah dari yang sudah pernah dipakai menyusun.
+  const berubah = nilai.peruntukan !== peruntukanTersimpan;
 
   function ubah(patch: Partial<Metadata>) {
     onChange({ ...nilai, ...patch });
@@ -110,6 +120,51 @@ export default function MetadataPengukuran({
             Beda dari topik kurikulum di bawah: yang ini menentukan penguasaan mana yang dihitung,
             bukan di bab mana soalnya muncul.
           </span>
+        </label>
+      )}
+
+      {/* Kolamnya hanya ditanyakan pada butir yang memang diukur. Di luar peta
+          kompetensi tidak ada paket yang menyusun butir ini, jadi "latihan atau
+          ujian" adalah keputusan tanpa akibat — dan isian tanpa akibat mengajari
+          orang bahwa isian di layar ini boleh diisi asal-asalan.
+
+          KENAPA BARU ADA SEKARANG. Kolom ini lahir di migrasi tera 142 tapi
+          sampai hari ini cuma bisa diisi lewat impor JSON. Butir yang salah
+          kolam — atau yang ditulis tangan lewat editor, yang tidak pernah
+          menanyakannya — hanya bisa dibetulkan lewat SQL Editor. */}
+      {nilai.topik_id && (
+        <label className="mt-4 block">
+          <span className="text-xs font-medium text-slate-700">Kolam</span>
+          <select
+            value={nilai.peruntukan ?? ""}
+            onChange={(e) => ubah({ peruntukan: (e.target.value || null) as Peruntukan | null })}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          >
+            {/* Kosong tetap boleh dipilih, dan disebut apa adanya: butir yang
+                ditulis sebelum kolamnya ada memang berkeadaan ini, dan
+                menyembunyikannya berarti memaksa orang memutuskan sesuatu yang
+                belum tentu ia ketahui. */}
+            <option value="">Belum ditentukan — di luar cakupan pilot</option>
+            {PERUNTUKAN.map((k) => (
+              <option key={k.value} value={k.value}>
+                {k.label}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-gray-500">
+            {arti ?? "Selama kosong, penyusun paket memperlakukannya sebagai butir latihan."}
+          </span>
+          {/* Paket yang sudah tersusun TIDAK ikut berpindah. `semai_paket_topik`
+              membaca kolam saat menyusun, bukan saat butirnya berubah, dan
+              paket yang sudah pernah dikerjakan murid sengaja tidak disentuhnya
+              sama sekali. Tanpa kalimat ini, mengubah kolam terbaca seolah
+              memindahkan butirnya sekarang juga. */}
+          {berubah && (
+            <span className="mt-1 block text-xs text-amber-700">
+              Paket yang sudah tersusun tidak ikut berubah — susun ulang paket topik ini di halaman
+              Pengukuran sesudah menyimpan.
+            </span>
+          )}
         </label>
       )}
 
