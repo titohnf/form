@@ -1,5 +1,5 @@
 import { parseCsv } from "@/lib/csv";
-import type { QuestionType } from "@/lib/types";
+import type { QuestionOptions, QuestionType } from "@/lib/types";
 
 /**
  * Menerjemahkan satu berkas CSV menjadi calon soal bank.
@@ -17,7 +17,13 @@ import type { QuestionType } from "@/lib/types";
 export interface ImportedItem {
   type: QuestionType;
   prompt: string;
-  options: { choices: string[] } | null;
+  /**
+   * Bentuknya mengikuti tipe soalnya (lihat `QuestionOptions`). Impor CSV
+   * sendiri hanya pernah menghasilkan daftar pilihan, tapi impor JSON membawa
+   * kisi pernyataan, pasangan, dan urutan — dan keduanya bermuara di aksi
+   * penyimpanan yang sama.
+   */
+  options: QuestionOptions;
   correct_answer: unknown;
   weight: number;
   explanation: string | null;
