@@ -385,40 +385,42 @@ function TwoTier({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  const label = options?.answer_labels ?? ["Benar", "Salah"];
-  const reasons = options?.reasons ?? [];
+  const reasons = options?.tier2_choices ?? [];
   const kini = (value ?? {}) as { tier1?: unknown; tier2?: unknown };
 
-  function ubah(patch: { tier1?: boolean; tier2?: string }) {
+  function ubah(patch: { tier1?: "true" | "false"; tier2?: string }) {
     onChange({ ...kini, ...patch });
   }
 
   return (
     <div className="mt-2 flex flex-col gap-4">
       <div className="flex gap-4 text-sm">
-        {[true, false].map((v) => (
-          <label key={String(v)} className="flex items-center gap-2">
+        {(["true", "false"] as const).map((v) => (
+          <label key={v} className="flex items-center gap-2">
             <input
               type="radio"
               name={`q_${id}_t1`}
               checked={kini.tier1 === v}
               onChange={() => ubah({ tier1: v })}
             />
-            {v ? label[0] : label[1]}
+            {v === "true" ? "Benar" : "Salah"}
           </label>
         ))}
       </div>
 
       <div className="text-sm">
-        <p className="text-gray-600">{options?.reason_prompt ?? "Apa alasannya?"}</p>
+        <p className="text-gray-600">{options?.tier2_prompt || "Alasannya:"}</p>
         <div className="mt-2 flex flex-col gap-2">
           {reasons.map((alasan, i) => (
             <label key={i} className="flex items-start gap-2">
               <input
                 type="radio"
                 name={`q_${id}_t2`}
-                checked={kini.tier2 === String(i)}
-                onChange={() => ubah({ tier2: String(i) })}
+                /* Yang dikirim TEKS alasannya, bukan nomornya: itu yang
+                   dibandingkan `nilai_jawaban()` dengan kuncinya, dan itu pula
+                   yang dikirim permukaan latihan Tera untuk butir yang sama. */
+                checked={kini.tier2 === alasan}
+                onChange={() => ubah({ tier2: alasan })}
                 className="mt-1"
               />
               <MathText text={alasan} />

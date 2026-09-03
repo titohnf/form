@@ -69,16 +69,20 @@ export function questionIssue(
 
     case "true_false_two_tier": {
       const opsi = question.options as TwoTierOptions | null;
-      const alasan = (opsi?.reasons ?? []).filter((r) => r.trim());
+      const alasan = (opsi?.tier2_choices ?? []).filter((r) => r.trim());
       if (alasan.length < 2) return "butuh minimal 2 pilihan alasan di tingkat 2";
       const kunci = (question.correct_answer ?? {}) as Partial<TwoTierAnswer>;
-      if (typeof kunci.tier1 !== "boolean") return "tingkat 1 belum ditandai kuncinya";
-      // Kunci tingkat 2 menunjuk indeks; alasan yang sudah dihapus meninggalkan
-      // penunjuk yang tidak mengarah ke mana-mana, dan soal seperti itu menilai
-      // setiap jawaban sebagai alasan salah tanpa ada yang tahu kenapa.
-      const i = Number(kunci.tier2);
-      if (!Number.isInteger(i) || i < 0 || i >= alasan.length)
+      if (kunci.tier1 !== "true" && kunci.tier1 !== "false") {
+        return "tingkat 1 belum ditandai kuncinya";
+      }
+      // Kunci tingkat 2 adalah TEKS alasannya. Alasan yang sudah disunting
+      // meninggalkan kunci yang tidak sama dengan satu pun pilihan, dan soal
+      // seperti itu menilai setiap jawaban sebagai alasan salah tanpa ada yang
+      // tahu kenapa.
+      const kunciTeks = (kunci.tier2 ?? "").trim();
+      if (!kunciTeks || !alasan.some((a) => a.trim() === kunciTeks)) {
         return "alasan yang benar belum dipilih";
+      }
       return null;
     }
 

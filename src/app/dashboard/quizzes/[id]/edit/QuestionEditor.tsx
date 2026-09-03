@@ -53,7 +53,7 @@ interface Draft {
   /** Judul kolom pernyataan; "" berarti sudut kiri atas dibiarkan kosong. */
   statementLabel: string;
   gradingMode: StatementGridGradingMode;
-  /** true_false_two_tier — tingkat 1 memakai `tfCorrect` dan `statementLabels`. */
+  /** true_false_two_tier — tingkat 1 memakai `tfCorrect`, labelnya selalu Benar/Salah. */
   reasonPrompt: string;
   reasons: string[];
   /** Indeks alasan yang benar, sebagai teks; "" berarti belum dipilih. */
@@ -96,9 +96,16 @@ function toDraft(question: Question): Draft {
     statementLabels: grid?.answer_labels ?? DEFAULT_STATEMENT_LABELS,
     statementLabel: grid?.statement_label ?? "",
     gradingMode: gridKey.grading_mode === "all_or_nothing" ? "all_or_nothing" : "proportional",
-    reasonPrompt: twoTier?.reason_prompt ?? "Apa alasannya?",
-    reasons: twoTier?.reasons?.length ? twoTier.reasons : ["", ""],
-    reasonKey: twoTierKey.tier2 ?? "",
+    reasonPrompt: twoTier?.tier2_prompt ?? "Alasannya:",
+    reasons: twoTier?.tier2_choices?.length ? twoTier.tier2_choices : ["", ""],
+    // Kuncinya TEKS di database, indeks di layar: yang ditandai orang adalah
+    // baris, dan baris yang sedang diketik ulang tidak punya teks yang stabil
+    // untuk dipegang sebagai kunci. Diterjemahkan balik saat disimpan.
+    reasonKey: (() => {
+      const teks = (twoTierKey.tier2 ?? "").trim();
+      const i = (twoTier?.tier2_choices ?? []).findIndex((a) => a.trim() === teks);
+      return teks && i >= 0 ? String(i) : "";
+    })(),
     skorSebagian:
       twoTierKey.skor_sebagian === null || twoTierKey.skor_sebagian === undefined
         ? ""
@@ -199,17 +206,19 @@ function toPatch(draft: Draft): QuestionPatch {
     // baris yang sudah dihapus akan menilai setiap jawaban sebagai alasan
     // salah, tanpa ada yang kelihatan keliru di editornya.
     const reasons = draft.reasons.map((r) => r.trim()).filter(Boolean);
-    const kunciLama = draft.reasons[Number(draft.reasonKey)]?.trim();
-    const posisi = kunciLama ? reasons.indexOf(kunciLama) : -1;
+    const kunciTeks = draft.reasons[Number(draft.reasonKey)]?.trim() ?? "";
 
     options = {
-      answer_labels: draft.statementLabels,
-      reason_prompt: draft.reasonPrompt.trim() || "Apa alasannya?",
-      reasons,
+      tier2_prompt: draft.reasonPrompt.trim() || "Alasannya:",
+      tier2_choices: reasons,
     } satisfies TwoTierOptions;
     correct_answer = {
-      tier1: draft.tfCorrect === "true",
-      tier2: posisi >= 0 ? String(posisi) : "",
+      tier1: draft.tfCorrect,
+      // Kunci yang alasannya barusan dikosongkan tidak ikut tersimpan menunjuk
+      // teks yang tidak ada lagi di daftarnya: `questionIssue` menahannya
+      // sebagai "alasan yang benar belum dipilih", bukan meloloskannya sebagai
+      // soal yang menilai setiap jawaban salah.
+      tier2: reasons.includes(kunciTeks) ? kunciTeks : "",
       skor_sebagian: draft.skorSebagian.trim() ? Number(draft.skorSebagian) : null,
     } satisfies TwoTierAnswer;
   }
@@ -663,7 +672,6 @@ export default function QuestionEditor({
         {draft.type === "true_false_two_tier" && (
           <TwoTierRows
             tfCorrect={draft.tfCorrect}
-            statementLabels={draft.statementLabels}
             reasonPrompt={draft.reasonPrompt}
             reasons={draft.reasons}
             reasonKey={draft.reasonKey}
@@ -964,7 +972,6 @@ function StatementRows({
  */
 function TwoTierRows({
   tfCorrect,
-  statementLabels,
   reasonPrompt,
   reasons,
   reasonKey,
@@ -972,7 +979,6 @@ function TwoTierRows({
   onChange,
 }: {
   tfCorrect: "true" | "false";
-  statementLabels: [string, string];
   reasonPrompt: string;
   reasons: string[];
   reasonKey: string;
@@ -999,6 +1005,11 @@ function TwoTierRows({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Labelnya tidak bisa diubah, dan itu bukan penyederhanaan: layar
+          latihan Tera menuliskan "Benar"/"Salah" langsung, jadi label lain yang
+          disimpan di sini tidak akan pernah terbaca oleh murid yang
+          mengerjakannya. Untuk kategori yang bukan Benar/Salah, bentuknya kisi
+          pernyataan — di sanalah `answer_labels` memang dibaca. */}
       <div className="text-sm">
         Tingkat 1 — jawaban benar
         <div className="mt-1 flex gap-4 text-base">
@@ -1010,27 +1021,9 @@ function TwoTierRows({
                 onChange={() => onChange({ tfCorrect: v })}
                 className="h-4 w-4"
               />
-              {v === "true" ? statementLabels[0] : statementLabels[1]}
+              {v === "true" ? "Benar" : "Salah"}
             </label>
           ))}
-        </div>
-        <div className="mt-2 flex gap-2">
-          {([0, 1] as const).map((i) => (
-            <input
-              key={i}
-              value={statementLabels[i]}
-              onChange={(e) => {
-                const next: [string, string] = [...statementLabels];
-                next[i] = e.target.value;
-                onChange({ statementLabels: next });
-              }}
-              placeholder={i === 0 ? "Benar" : "Salah"}
-              className="w-32 rounded-lg border border-slate-300 px-2 py-1 text-xs"
-            />
-          ))}
-          <span className="self-center text-xs text-gray-400">
-            Label tingkat 1 — tidak harus &ldquo;Benar/Salah&rdquo;
-          </span>
         </div>
       </div>
 

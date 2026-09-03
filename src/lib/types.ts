@@ -96,19 +96,33 @@ export interface StatementGridOptions {
 /**
  * Bentuk `options` untuk `true_false_two_tier`.
  *
- * Tingkat 1 menilai pernyataannya (label kategorinya bisa bukan "Benar/Salah"
- * literal — contoh soal resmi TKA memakai "Mungkin/Tidak Mungkin" dan sejenisnya,
- * lihat Rubrik Bagian 4.2). Tingkat 2 menanyakan ALASANNYA, dipilih dari daftar,
- * bukan diketik bebas: itu yang membuat miskonsepsi terdeteksi tanpa penilaian
- * teks bebas (dokumen fondasi Bagian 3.4).
+ * Tingkat 1 menilai pernyataannya; tingkat 2 menanyakan ALASANNYA, dipilih dari
+ * daftar, bukan diketik bebas — itu yang membuat miskonsepsi terdeteksi tanpa
+ * penilaian teks bebas (dokumen fondasi Bagian 3.4).
+ *
+ * NAMA FIELDNYA MENGIKUTI DATABASE, BUKAN SEBALIKNYA. Sampai hari ini berkas
+ * ini menyebutnya `reasons`/`reason_prompt` dan menyimpan kunci tingkat 2
+ * sebagai INDEKS, sementara ke-19 butir dua tingkat yang benar-benar ada di
+ * `question_bank_items` memakai `tier2_choices`/`tier2_prompt` dengan kunci
+ * berupa TEKS alasannya — bentuk yang dibaca permukaan latihan Tera
+ * (`lib/belajar/tipe-soal.ts`) dan ditulis migrasi tera 178.
+ *
+ * Keduanya "bekerja" selama satu aplikasi saja yang menyentuhnya: Sora menulis
+ * indeks lalu membacanya sendiri sebagai indeks. Yang tidak bekerja adalah
+ * butir yang ditulis di sini lalu dikerjakan anak di Tera — daftar alasannya
+ * kosong di layar murid, karena Tera mencari `tier2_choices`. Dua repo ini
+ * berbagi database, bukan paket; kontraknya adalah bentuk kolomnya.
+ *
+ * Tingkat 1 TIDAK punya label sendiri di sini. Tera menuliskan "Benar"/"Salah"
+ * langsung di layarnya, jadi label yang disimpan tidak akan pernah terbaca —
+ * dan isian yang tidak terbaca lebih buruk daripada isian yang tidak ada.
+ * Untuk kategori yang bukan Benar/Salah, bentuknya `statement_grid`.
  */
 export interface TwoTierOptions {
-  /** Dua tombol tingkat 1, urut [benar, salah]. */
-  answer_labels: [string, string];
-  /** Pertanyaan tingkat 2, mis. "Apa alasannya?". */
-  reason_prompt: string;
+  /** Pengantar daftar alasannya. "Alasannya:" kalau kosong. */
+  tier2_prompt?: string;
   /** Pilihan alasan. Yang salah harus mencerminkan miskonsepsi nyata, bukan opsi asal. */
-  reasons: string[];
+  tier2_choices: string[];
 }
 
 /**
@@ -119,8 +133,13 @@ export interface TwoTierOptions {
  * `nilai_jawaban()` (migrasi tera 138).
  */
 export interface TwoTierAnswer {
-  tier1: boolean;
-  /** Indeks alasan yang benar di `TwoTierOptions.reasons`, sebagai teks. */
+  /**
+   * "true" atau "false" — TEKS, bukan boolean. Itu yang dikirim layar murid
+   * dan yang disimpan ke-19 butir yang ada; `nilai_jawaban()` membandingkan
+   * kunci dengan jawaban apa adanya.
+   */
+  tier1: "true" | "false";
+  /** TEKS alasan yang benar, disalin persis dari `tier2_choices`. */
   tier2: string;
   skor_sebagian?: number | null;
 }

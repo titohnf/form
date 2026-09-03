@@ -1,4 +1,4 @@
-import type { Question, StatementGridOptions, TwoTierOptions } from "@/lib/types";
+import type { Question, StatementGridOptions } from "@/lib/types";
 import { ringkasIsiSoal } from "@/lib/isi-soal";
 
 /**
@@ -33,15 +33,16 @@ export function formatResponse(
     }
 
     case "true_false_two_tier": {
-      const options = question.options as TwoTierOptions | null;
-      const [benar, salah] = options?.answer_labels ?? ["Benar", "Salah"];
       const jawab = (response ?? {}) as { tier1?: unknown; tier2?: unknown };
-      const tingkat1 = jawab.tier1 === true ? benar : jawab.tier1 === false ? salah : "—";
-      // Alasannya ditulis apa adanya, bukan nomornya: nomor alasan tidak berarti
-      // apa-apa bagi tutor yang sedang membaca layar hasil.
-      const i = Number(jawab.tier2);
-      const alasan = Number.isInteger(i) ? (options?.reasons ?? [])[i] : undefined;
-      return `${tingkat1} — ${alasan ?? "alasan belum dipilih"}`;
+      // Tingkat 1 dikirim sebagai teks "true"/"false"; boolean masih diterima
+      // supaya jawaban lama tidak berubah jadi "—" di layar hasil.
+      const t1 = jawab.tier1;
+      const tingkat1 =
+        t1 === "true" || t1 === true ? "Benar" : t1 === "false" || t1 === false ? "Salah" : "—";
+      // Alasannya memang sudah berupa teks, bukan nomor: nomor alasan tidak
+      // berarti apa-apa bagi tutor yang sedang membaca layar hasil.
+      const alasan = typeof jawab.tier2 === "string" ? jawab.tier2.trim() : "";
+      return `${tingkat1} — ${alasan || "alasan belum dipilih"}`;
     }
 
     case "matching": {

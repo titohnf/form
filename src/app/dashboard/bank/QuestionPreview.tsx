@@ -116,26 +116,28 @@ function Answers({ question }: { question: Question }) {
     case "true_false_two_tier": {
       const opsi = question.options as TwoTierOptions | null;
       const kunci = (question.correct_answer ?? {}) as Partial<TwoTierAnswer>;
-      const label = opsi?.answer_labels ?? ["Benar", "Salah"];
-      const alasan = opsi?.reasons ?? [];
-      if (typeof kunci.tier1 !== "boolean" || alasan.length === 0) {
+      const alasan = opsi?.tier2_choices ?? [];
+      if ((kunci.tier1 !== "true" && kunci.tier1 !== "false") || alasan.length === 0) {
         return <Kosong>Kunci jawaban belum lengkap.</Kosong>;
       }
-      const iBenar = Number(kunci.tier2);
+      const kunciAlasan = (kunci.tier2 ?? "").trim();
       return (
         <div className="space-y-2">
-          <Kunci>{kunci.tier1 ? label[0] : label[1]}</Kunci>
-          <p className="text-xs text-gray-500">{opsi?.reason_prompt ?? "Apa alasannya?"}</p>
+          <Kunci>{kunci.tier1 === "true" ? "Benar" : "Salah"}</Kunci>
+          <p className="text-xs text-gray-500">{opsi?.tier2_prompt || "Alasannya:"}</p>
           <ul className="space-y-1">
-            {alasan.map((teks, i) => (
-              <li
-                key={i}
-                className={i === iBenar ? "text-sm text-emerald-700" : "text-sm text-gray-600"}
-              >
-                {i === iBenar ? "\u2713 " : "\u00b7 "}
-                <MathText text={teks} />
-              </li>
-            ))}
+            {alasan.map((teks, i) => {
+              const benar = teks.trim() === kunciAlasan;
+              return (
+                <li
+                  key={i}
+                  className={benar ? "text-sm text-emerald-700" : "text-sm text-gray-600"}
+                >
+                  {benar ? "\u2713 " : "\u00b7 "}
+                  <MathText text={teks} />
+                </li>
+              );
+            })}
           </ul>
         </div>
       );
