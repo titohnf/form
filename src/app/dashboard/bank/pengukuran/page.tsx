@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { BLOOM_LEVELS } from "@/lib/bloom";
+import { fetchAllPages } from "@/lib/paginate";
 import ImporPengukuran from "./ImporPengukuran";
 import TombolAktif from "./TombolAktif";
 import TombolSusun from "./TombolSusun";
@@ -33,10 +34,19 @@ export default async function PengukuranPage() {
   // Hanya butir bertopik: sisa bank soal (ribuan butir latihan bebas) tidak
   // pernah jadi anggota paket pengukuran, dan menariknya ke sini cuma membuat
   // halaman lambat untuk pertanyaan yang tidak ia jawab.
-  const { data: butirRows } = await supabase
-    .from("question_bank_items")
-    .select("id, topik_id, bloom_level, peruntukan, status_verifikasi")
-    .not("topik_id", "is", null);
+  // Berhalaman, bukan satu query: PostgREST memotong diam-diam di 1000 baris,
+  // dan butir pengukuran sudah ribuan. Tanpa ini kolom "Butir tertandai"
+  // menghitung dari sebagian saja dan menyebut topik yang lengkap sebagai
+  // topik yang bolong. Diurutkan dengan `id` supaya halaman tidak saling
+  // melompati.
+  const { rows: butirRows } = await fetchAllPages<Butir>((dari, sampai) =>
+    supabase
+      .from("question_bank_items")
+      .select("id, topik_id, bloom_level, peruntukan, status_verifikasi")
+      .not("topik_id", "is", null)
+      .order("id")
+      .range(dari, sampai),
+  );
 
   const { data: paketRows } = await supabase
     .from("paket_topik")
@@ -67,7 +77,7 @@ export default async function PengukuranPage() {
   };
 
   const topik = (topikRows ?? []) as Topik[];
-  const butir = (butirRows ?? []) as Butir[];
+  const butir = butirRows;
   const paket = (paketRows ?? []) as Paket[];
 
   // Topik yang belum punya butir DAN belum aktif tidak ditampilkan: peta

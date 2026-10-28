@@ -137,6 +137,7 @@ export default function BankItem({
   // klik di antara orang dan satu-satunya hal yang bisa dia lakukan di sana.
   const [editing, setEditing] = useState(!item.prompt.trim() || Boolean(selesai));
   const [confirmHapus, setConfirmHapus] = useState(false);
+  const [galatHapus, setGalatHapus] = useState<string | null>(null);
   // Terbuka sejak awal kecuali kartunya memang diminta ringkas.
   const [terbuka, setTerbuka] = useState(!ringkas);
   // Status verifikasi hidup terpisah dari `isi`: ia menyimpan seketika saat
@@ -287,7 +288,13 @@ export default function BankItem({
    * halaman tentang baris yang sudah tidak ada — jadi orangnya dipulangkan.
    */
   async function hapus() {
-    await deleteBankItem(item.id);
+    setGalatHapus(null);
+    const alasan = await deleteBankItem(item.id);
+    if (alasan) {
+      setGalatHapus(alasan);
+      setConfirmHapus(false);
+      return;
+    }
     if (selesai) router.push(selesai);
   }
 
@@ -434,6 +441,7 @@ export default function BankItem({
             ))}
           </div>
           {galatStatus && <p className="w-full text-xs text-red-600">{galatStatus}</p>}
+          {galatHapus && <p className="w-full text-xs text-red-600">{galatHapus}</p>}
         </div>
 
         <QuestionPreview question={asQuestion} />

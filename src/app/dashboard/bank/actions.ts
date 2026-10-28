@@ -381,10 +381,79 @@ export async function ubahStatusVerifikasi(itemId: string, status: string) {
   revalidatePath("/dashboard/bank", "layout");
 }
 
-export async function deleteBankItem(itemId: string) {
+/**
+ * Menghapus satu butir. Mengembalikan alasannya kalau tidak jadi dihapus, bukan
+ * diam: sebelumnya galat database dibuang, dan tombol "Ya, hapus" yang ditolak
+ * terlihat sama persis dengan tombol yang rusak.
+ *
+ * ADMIN BOLEH MENGHAPUS BUTIRNYA SENDIRI, termasuk yang sudah masuk paket.
+ * `paket_topik_item` menahan butirnya (`on delete restrict`, migrasi tera 145)
+ * supaya paket tidak berlubang tanpa ada yang tahu — maka keanggotaannya
+ * dilepas lebih dulu di sini dan paketnya disusun ulang sesudahnya, jadi
+ * lubang itu tidak pernah ada.
+ *
+ * YANG TETAP DITOLAK: butir yang sudah DIJAWAB murid, dan butir yang paketnya
+ * sedang dikerjakan murid. `practice_answers` runtuh bersama butirnya (`on
+ * delete cascade`), jadi menghapusnya berarti menghilangkan jawaban anak
+ * tanpa suara; dan sesi yang sedang berjalan menyimpan daftar butirnya. Untuk
+ * keduanya jalan yang benar adalah "Tarik", yang menghentikan penyajian sambil
+ * meninggalkan jejaknya utuh.
+ */
+export async function deleteBankItem(itemId: string): Promise<string | null> {
   const supabase = await createClient();
-  await supabase.from("question_bank_items").delete().eq("id", itemId);
+
+  const { data: butir } = await supabase
+    .from("question_bank_items")
+    .select("topik_id")
+    .eq("id", itemId)
+    .maybeSingle();
+
+  const { count: dijawab } = await supabase
+    .from("practice_answers")
+    .select("*", { count: "exact", head: true })
+    .eq("question_bank_item_id", itemId);
+  if ((dijawab ?? 0) > 0) {
+    return (
+      `Butir ini sudah dijawab murid (${dijawab} jawaban) dan menghapusnya akan menghilangkan jawaban itu. ` +
+      "Tarik saja butirnya supaya tidak disajikan lagi."
+    );
+  }
+
+  const { data: anggota } = await supabase
+    .from("paket_topik_item")
+    .select("paket_id")
+    .eq("question_bank_item_id", itemId);
+  const paketIds = (anggota ?? []).map((a) => a.paket_id as string);
+
+  if (paketIds.length > 0) {
+    const { count: sesi } = await supabase
+      .from("practice_sessions")
+      .select("*", { count: "exact", head: true })
+      .in("paket_topik_id", paketIds);
+    if ((sesi ?? 0) > 0) {
+      return (
+        "Paket yang memuat butir ini sedang atau pernah dikerjakan murid, jadi isinya tidak diubah. " +
+        "Tarik saja butirnya supaya tidak disajikan lagi."
+      );
+    }
+    const { error: lepas } = await supabase
+      .from("paket_topik_item")
+      .delete()
+      .eq("question_bank_item_id", itemId);
+    if (lepas) return `Gagal melepas butir dari paket: ${lepas.message}`;
+  }
+
+  const { error } = await supabase.from("question_bank_items").delete().eq("id", itemId);
+
+  // Paket disusun ulang apa pun hasilnya: kalau butir berhasil dihapus, paketnya
+  // dirapikan; kalau gagal, keanggotaan yang tadi dilepas dikembalikan.
+  if (paketIds.length > 0 && butir?.topik_id) {
+    await supabase.rpc("semai_paket_topik", { p_topik_id: butir.topik_id });
+  }
+
+  if (error) return `Gagal menghapus: ${error.message}`;
   revalidatePath("/dashboard/bank", "layout");
+  return null;
 }
 
 /**
