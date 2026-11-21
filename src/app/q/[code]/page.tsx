@@ -25,10 +25,10 @@ export default async function PublicQuizPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ error?: string; kode?: string }>;
+  searchParams: Promise<{ error?: string; kode?: string; akun?: string }>;
 }) {
   const { code } = await params;
-  const { error, kode: kodeParam } = await searchParams;
+  const { error, kode: kodeParam, akun: akunParam } = await searchParams;
   const supabase = await createClient();
 
   // Share code dicari sebagai PENUGASAN dulu, baru sebagai paket soal lepas. Satu
@@ -156,13 +156,19 @@ export default async function PublicQuizPage({
   // dibawa ke sini dengan `?kode=`. Kodenya diperiksa ulang ke database, lalu
   // layar "Selamat Datang" dilewati dan peserta langsung ke halaman persiapan
   // (konfirmasi data). Kode yang tidak dikenal diabaikan: layar masuk biasa.
-  let identitasAwal: { tipe: "kode"; kode: string; nama: string } | null = null;
+  let identitasAwal: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null = null;
   if (!entry && settings.cbt_mode && kodeParam) {
     const bersih = kodeParam.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
     if (bersih) {
       const { data: namaPeserta } = await supabase.rpc("masuk_peserta", { p_kode: bersih });
       if (namaPeserta) identitasAwal = { tipe: "kode", kode: bersih, nama: namaPeserta as string };
     }
+  }
+
+  // Akun Tera yang sudah login (sesi dibagi karena Sora dipasang di bawah alamat
+  // Tera): `?akun=1` dari kartu Try Out melewati Selamat Datang juga.
+  if (!identitasAwal && !entry && settings.cbt_mode && akun && akunParam === "1") {
+    identitasAwal = { tipe: "akun", nama: akun };
   }
 
   // Daftar paket try out TKA yang bisa dipilih di halaman masuk. Hanya paket

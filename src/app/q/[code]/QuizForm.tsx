@@ -74,7 +74,7 @@ export default function QuizForm({
   /** Nama siswa Tera yang sedang login (try out TKA), atau null. */
   akun: string | null;
   /** Peserta yang dibawa dari Tera dengan `?kode=`: identitas sudah pasti, layar masuk dilewati. */
-  identitasAwal: { tipe: "kode"; kode: string; nama: string } | null;
+  identitasAwal: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null;
 }) {
   const [step, setStep] = useState<"name" | "quiz" | "submitting">("name");
   const [guestName, setGuestName] = useState("");

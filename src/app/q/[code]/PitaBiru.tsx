@@ -35,7 +35,7 @@ export default function PitaBiru({
         <div className="flex min-w-0 items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo-tera.png"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/logo-tera.png`}
             alt="Bimbel Tera"
             className="h-10 w-10 shrink-0 rounded-full bg-white p-1.5 sm:h-12 sm:w-12"
           />
