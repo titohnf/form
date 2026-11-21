@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Attempt, QuizSettings } from "@/lib/types";
@@ -23,6 +24,11 @@ export default async function AttemptResultPage({
   // `questions` (tempat kunci jawaban), jadi tidak bisa menjumlahkannya sendiri.
   const { data: bobot } = await supabase.rpc("bobot_paket", { p_quiz_id: attempt.quiz_id });
   const totalWeight = Number(bobot ?? 0);
+
+  // "Beranda" ada di Tera, satu alamat dengan Sora: peserta berkode ke /umum
+  // (cookie kode dibagi), akun login ke / (Tera memilah menurut perannya).
+  const punyaKode = Boolean((await cookies()).get("kode_peserta")?.value);
+  const beranda = punyaKode ? "/umum" : "/";
 
   const typedAttempt = attempt;
   const settings = hasil.settings ?? {};
@@ -96,6 +102,13 @@ export default async function AttemptResultPage({
             )}
           </>
         )}
+      </div>
+
+      {/* Anchor biasa, bukan Link: tujuannya di luar basePath Sora (/tryout). */}
+      <div className="mt-6 text-center">
+        <a href={beranda} className="inline-block rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+          Kembali ke Beranda
+        </a>
       </div>
     </div>
   );
