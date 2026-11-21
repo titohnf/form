@@ -12,22 +12,20 @@ export default async function AttemptResultPage({
   const { attemptId } = await params;
   const supabase = await createClient();
 
-  const { data: attempt } = await supabase
-    .from("attempts")
-    .select("*, quizzes(settings)")
-    .eq("id", attemptId)
-    .single();
-
-  if (!attempt) notFound();
+  // Percobaan SENDIRI dibaca lewat fungsi database (migrasi Tera 231): peserta
+  // tidak boleh membaca tabel `attempts`, tempat nama dan skor semua peserta.
+  const { data: paket } = await supabase.rpc("hasil_percobaan", { p_attempt: attemptId });
+  const hasil = paket as { attempt: Attempt; settings: Partial<QuizSettings>; lainnya: Pick<Attempt, "id" | "started_at" | "submitted_at" | "total_score">[] } | null;
+  if (!hasil) notFound();
+  const attempt = hasil.attempt;
 
   // Total bobot dari fungsi database: peserta tidak lagi boleh membaca tabel
   // `questions` (tempat kunci jawaban), jadi tidak bisa menjumlahkannya sendiri.
   const { data: bobot } = await supabase.rpc("bobot_paket", { p_quiz_id: attempt.quiz_id });
   const totalWeight = Number(bobot ?? 0);
 
-  const typedAttempt = attempt as Attempt;
-  const settings = ((attempt as unknown as { quizzes: { settings: Partial<QuizSettings> } }).quizzes
-    ?.settings ?? {}) as Partial<QuizSettings>;
+  const typedAttempt = attempt;
+  const settings = hasil.settings ?? {};
   const hasPendingGrading = typedAttempt.total_score === null;
   const showScore = settings.show_score_immediately ?? true;
 
@@ -36,11 +34,16 @@ export default async function AttemptResultPage({
   // Paket bertampilan TKA tidak memakai peringkat maupun lencana: itu ujian,
   // bukan permainan, dan murid tidak perlu tahu posisinya terhadap peserta lain.
   if (showScore && !hasPendingGrading && !settings.cbt_mode) {
-    const { data: allAttempts } = await supabase
-      .from("attempts")
-      .select("*")
-      .eq("quiz_id", typedAttempt.quiz_id);
-    const ranked = rankAttempts((allAttempts ?? []) as Attempt[]);
+    // Hanya angka (waktu dan skor) percobaan lain, tanpa nama, dari fungsi yang sama.
+    const allAttempts = hasil.lainnya.map((x) => ({
+      ...x,
+      quiz_id: typedAttempt.quiz_id,
+      guest_name: "",
+      current_question_index: 0,
+      last_active_at: x.submitted_at ?? x.started_at,
+      learner_id: null,
+    }));
+    const ranked = rankAttempts(allAttempts as Attempt[]);
     rank = ranked.find((r) => r.attempt.id === typedAttempt.id)?.rank ?? null;
     badges = computeBadges(typedAttempt, totalWeight, ranked);
   }

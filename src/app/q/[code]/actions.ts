@@ -2,15 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { QuizSettings } from "@/lib/types";
 import { JENIS_KEJADIAN } from "@/lib/kejadian";
 
 export type StartAttemptResult =
   | { attemptId: string; startedAt?: string; serverNow?: string }
   | { error: string };
-
-/** Toleransi setelah batas waktu habis, untuk jawaban terakhir yang sedang dalam perjalanan. */
-const TOLERANSI_DETIK = 60;
 
 export async function startAttempt(
   shareCode: string,
@@ -19,56 +15,33 @@ export async function startAttempt(
 ): Promise<StartAttemptResult> {
   const supabase = await createClient();
 
-  const { data: quiz } = await supabase
-    .from("quizzes")
-    .select("id, status, settings")
-    .eq("share_code", shareCode)
-    .single();
-
-  if (!quiz || quiz.status !== "published") {
-    return { error: "Paket soal tidak tersedia." };
-  }
-
-  const settings = (quiz.settings ?? {}) as Partial<QuizSettings>;
-  const now = new Date();
-
-  // Try out bertampilan TKA tidak lagi menerima nama bebas: peserta masuk dengan
-  // kode peserta atau akun Tera supaya hasilnya pasti milik siapa.
-  if (settings.cbt_mode) {
-    return { error: "Masuk dengan kode peserta atau akun Tera." };
-  }
-
-  if (settings.opens_at && now < new Date(settings.opens_at)) {
-    return { error: "Paket soal belum dibuka." };
-  }
-  if (settings.closes_at && now > new Date(settings.closes_at)) {
-    return { error: "Paket soal sudah ditutup." };
-  }
-
-  if (settings.max_attempts) {
-    const { count } = await supabase
-      .from("attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("quiz_id", quiz.id)
-      .eq("guest_name", guestName);
-    if ((count ?? 0) >= settings.max_attempts) {
-      return { error: "Kamu sudah mencapai batas percobaan untuk paket soal ini." };
-    }
-  }
-
-  const { data: attempt, error } = await supabase
-    .from("attempts")
-    .insert({ quiz_id: quiz.id, guest_name: guestName, learner_id: learnerId })
-    .select("id, started_at")
-    .single();
-
-  if (error || !attempt) {
-    return { error: "Gagal memulai paket soal." };
-  }
+  // Seluruh pemeriksaan (terbit, jadwal, batas percobaan, roster) dan pembuatan
+  // percobaan ada di `mulai_percobaan_tamu` (migrasi Tera 231): peserta tidak
+  // menulis ke tabel `attempts` langsung. Paket bertampilan TKA ditolak di sana
+  // juga: peserta TKA masuk dengan kode atau akun.
+  const { data, error } = await supabase.rpc("mulai_percobaan_tamu", {
+    p_share_code: shareCode,
+    p_nama: guestName,
+    p_learner: learnerId,
+  });
+  if (error || !data) return { error: pesanMulaiTamu(error?.message ?? "") };
 
   // `serverNow` dikirim supaya timer di layar murid tidak ikut jam perangkatnya
   // yang bisa meleset: yang dipakai selisih jam server dan jam perangkat.
-  return { attemptId: attempt.id, startedAt: attempt.started_at, serverNow: new Date().toISOString() };
+  const h = data as { attempt_id: string; started_at: string; server_now: string };
+  return { attemptId: h.attempt_id, startedAt: h.started_at, serverNow: h.server_now };
+}
+
+function pesanMulaiTamu(pesan: string): string {
+  if (pesan.includes("gunakan_kode_atau_akun")) return "Masuk dengan kode peserta atau akun Tera.";
+  if (pesan.includes("belum_dibuka")) return "Paket soal belum dibuka.";
+  if (pesan.includes("sudah_ditutup")) return "Paket soal sudah ditutup.";
+  if (pesan.includes("batas_percobaan")) return "Kamu sudah mencapai batas percobaan untuk paket soal ini.";
+  if (pesan.includes("pilih_nama_roster")) return "Pilih namamu dari daftar.";
+  if (pesan.includes("nama_wajib")) return "Nama wajib diisi";
+  if (pesan.includes("paket_bersesi")) return "Paket soal ini hanya untuk murid yang terdaftar.";
+  if (pesan.includes("paket_tidak_tersedia")) return "Paket soal tidak tersedia.";
+  return "Gagal memulai paket soal.";
 }
 
 /**
@@ -84,20 +57,8 @@ export async function startAttempt(
 export async function percobaanMasihBerjalan(shareCode: string, attemptId: string): Promise<boolean> {
   if (!attemptId) return false;
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("attempts")
-    .select("id, submitted_at, started_at, quizzes(share_code, status, settings)")
-    .eq("id", attemptId)
-    .maybeSingle();
-  if (!data || data.submitted_at) return false;
-  const kuis = data.quizzes as unknown as { share_code: string | null; status: string; settings: Partial<QuizSettings> | null } | null;
-  if (!kuis || kuis.share_code !== shareCode || kuis.status !== "published") return false;
-  const menit = kuis.settings?.cbt_mode ? kuis.settings?.time_limit_minutes : null;
-  if (menit) {
-    const batas = new Date(data.started_at).getTime() + (menit * 60 + TOLERANSI_DETIK) * 1000;
-    if (Date.now() > batas) return false;
-  }
-  return true;
+  const { data } = await supabase.rpc("percobaan_berjalan", { p_share_code: shareCode, p_attempt: attemptId });
+  return data === true;
 }
 
 /** Pesan untuk peserta dari kode galat fungsi database (migrasi Tera 227). */
@@ -150,35 +111,20 @@ export async function saveAnswer(
   response: unknown,
   questionIndex: number,
 ) {
+  void quizId; // dibaca dari percobaannya di database, bukan dipercaya dari klien
   const supabase = await createClient();
 
-  // Batas waktu hanya ditegakkan untuk paket bertampilan TKA. Paket lain boleh
-  // punya `time_limit_minutes` yang selama ini tidak pernah dipakai, dan
-  // menegakkannya sekarang akan menolak jawaban murid di paket yang tidak
-  // pernah dirancang dengan batas itu.
-  const { data: percobaan } = await supabase
-    .from("attempts")
-    .select("started_at, quizzes(settings)")
-    .eq("id", attemptId)
-    .maybeSingle();
-  const pengaturan = ((percobaan as unknown as { quizzes: { settings: Partial<QuizSettings> | null } | null } | null)
-    ?.quizzes?.settings ?? {}) as Partial<QuizSettings>;
-  if (percobaan && pengaturan.cbt_mode && pengaturan.time_limit_minutes) {
-    const batas = new Date(percobaan.started_at).getTime() + (pengaturan.time_limit_minutes * 60 + TOLERANSI_DETIK) * 1000;
-    if (Date.now() > batas) return { expired: true as const };
-  }
-
-  await supabase
-    .from("answers")
-    .upsert(
-      { attempt_id: attemptId, question_id: questionId, quiz_id: quizId, response },
-      { onConflict: "attempt_id,question_id" },
-    );
-
-  await supabase
-    .from("attempts")
-    .update({ current_question_index: questionIndex, last_active_at: new Date().toISOString() })
-    .eq("id", attemptId);
+  // Satu fungsi database (migrasi Tera 231) yang memeriksa percobaan belum
+  // dikirim, soal milik paketnya, dan batas waktu paket TKA; hanya kolom
+  // `response` yang bisa ditulis peserta, bukan skor.
+  const { data } = await supabase.rpc("simpan_jawaban", {
+    p_attempt: attemptId,
+    p_question: questionId,
+    p_response: response,
+    p_index: questionIndex,
+  });
+  const hasil = (data ?? {}) as { expired?: boolean };
+  if (hasil.expired) return { expired: true as const };
 }
 
 export async function finalizeAttempt(shareCode: string, attemptId: string) {
@@ -234,14 +180,14 @@ export async function startAssessmentAttempt(shareCode: string): Promise<StartAt
  * terbit), dan di sini jenisnya dibatasi pada daftar yang dikenal.
  */
 export async function catatKejadian(quizId: string, attemptId: string, jenis: string, durasiMs?: number) {
+  void quizId;
   if (!(JENIS_KEJADIAN as readonly string[]).includes(jenis)) return;
   try {
     const supabase = await createClient();
-    await supabase.from("attempt_events").insert({
-      attempt_id: attemptId,
-      quiz_id: quizId,
-      kind: jenis,
-      durasi_ms: typeof durasiMs === "number" && Number.isFinite(durasiMs) ? Math.min(Math.max(0, Math.round(durasiMs)), 86_400_000) : null,
+    await supabase.rpc("catat_kejadian", {
+      p_attempt: attemptId,
+      p_kind: jenis,
+      p_durasi_ms: typeof durasiMs === "number" && Number.isFinite(durasiMs) ? Math.round(durasiMs) : null,
     });
   } catch {
     /* pencatatan tidak boleh mengganggu ujian */
@@ -259,11 +205,7 @@ export async function catatPosisi(attemptId: string, nomorAsli: number) {
   if (!Number.isInteger(nomorAsli) || nomorAsli < 0 || nomorAsli > 1000) return;
   try {
     const supabase = await createClient();
-    await supabase
-      .from("attempts")
-      .update({ current_question_index: nomorAsli, last_active_at: new Date().toISOString() })
-      .eq("id", attemptId)
-      .is("submitted_at", null);
+    await supabase.rpc("catat_posisi", { p_attempt: attemptId, p_nomor: nomorAsli });
   } catch {
     /* denyut tidak boleh mengganggu ujian */
   }
