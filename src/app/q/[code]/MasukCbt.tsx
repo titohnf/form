@@ -66,6 +66,14 @@ export default function MasukCbt({
   }
 
   async function mulai() {
+    // Layar penuh hanya boleh diminta di dalam penekanan tombol, jadi di sini,
+    // sebelum menunggu apa pun. Perangkat yang tidak mendukungnya (iPhone)
+    // dilewati tanpa masalah.
+    try {
+      void document.documentElement.requestFullscreen?.().catch(() => {});
+    } catch {
+      /* tidak didukung */
+    }
     setMemulai(true);
     await onMulai();
     setMemulai(false);
@@ -186,7 +194,7 @@ export default function MasukCbt({
                   <li>Buka Daftar soal untuk melihat soal yang sudah dan belum dijawab.</li>
                   <li>Tekan sebuah gambar untuk memperbesarnya. Ukuran huruf soal bisa diubah dengan tombol A.</li>
                   {menit && <li>Waktu berjalan setelah kamu menekan tombol Mulai. Jawaban terkirim otomatis saat waktu habis.</li>}
-                  <li>Jangan menutup atau memuat ulang halaman selama mengerjakan.</li>
+                  <li>Jangan menutup atau memuat ulang halaman, dan jangan berpindah tab atau aplikasi selama mengerjakan. Ujian berjalan di layar penuh, dan setiap kali kamu meninggalkan halaman, kejadiannya dicatat dan dapat dilihat oleh tutor.</li>
                 </ul>
               </div>
 

@@ -113,10 +113,12 @@ export default async function PublicQuizPage({
   let orderedQuestions = (questions ?? []) as Question[];
   // Shuffling questions would break branching's order_index-based fallback, so it's ignored
   // in sequential mode (a quiz author using branching wants a deliberate path).
-  if (settings.shuffle_questions && !settings.sequential_mode) {
+  // Tampilan TKA mengacak di sisi peserta dengan benih id percobaannya (lihat
+  // `lib/acak.ts`), supaya urutannya tetap sama saat halaman dimuat ulang.
+  if (settings.shuffle_questions && !settings.sequential_mode && !settings.cbt_mode) {
     orderedQuestions = shuffle(orderedQuestions);
   }
-  if (settings.shuffle_choices) {
+  if (settings.shuffle_choices && !settings.cbt_mode) {
     orderedQuestions = orderedQuestions.map((q) => {
       if (q.type === "mcq_single" || q.type === "mcq_multi") {
         const opts = q.options as McqOptions | null;
@@ -179,6 +181,8 @@ export default async function PublicQuizPage({
             students={learners}
             sequential={settings.sequential_mode ?? false}
             cbt={settings.cbt_mode ?? false}
+            acakSoal={settings.shuffle_questions ?? false}
+            acakPilihan={settings.shuffle_choices ?? false}
             timeLimitMinutes={settings.time_limit_minutes ?? null}
             judul={typedQuiz.title}
             kode={code}

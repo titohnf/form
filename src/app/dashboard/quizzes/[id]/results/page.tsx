@@ -33,6 +33,21 @@ export default async function QuizResultsPage({
 
   const { data: answers } = await supabase.from("answers").select("*").eq("quiz_id", id);
 
+  // Catatan kejadian selama ujian (migrasi Tera 223). Kalau tabelnya belum
+  // ada, hasilnya kosong dan halaman ini tetap tampil seperti biasa.
+  const { data: kejadianMentah } = await supabase
+    .from("attempt_events")
+    .select("attempt_id, kind, durasi_ms")
+    .eq("quiz_id", id);
+  const kejadian = new Map<string, { keluar: number; detik: number; lain: number }>();
+  for (const k of (kejadianMentah ?? []) as { attempt_id: string; kind: string; durasi_ms: number | null }[]) {
+    const r = kejadian.get(k.attempt_id) ?? { keluar: 0, detik: 0, lain: 0 };
+    if (k.kind === "hilang_fokus") r.keluar += 1;
+    else if (k.kind === "kembali") r.detik += Math.round((k.durasi_ms ?? 0) / 1000);
+    else r.lain += 1;
+    kejadian.set(k.attempt_id, r);
+  }
+
   const typedQuestions = (questions ?? []) as Question[];
   const typedAnswers = (answers ?? []) as Answer[];
   const typedAttempts = (attempts as Attempt[] | null) ?? [];
@@ -126,6 +141,18 @@ export default async function QuizResultsPage({
               <p className="text-sm text-gray-500">
                 {attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString("id-ID") : "Belum submit"}
               </p>
+              {(() => {
+                const r = kejadian.get(attempt.id);
+                if (!r || (r.keluar === 0 && r.lain === 0)) return null;
+                const menit = r.detik >= 60 ? `${Math.floor(r.detik / 60)} mnt ${r.detik % 60} dtk` : `${r.detik} dtk`;
+                return (
+                  <p className={`mt-0.5 text-xs font-medium ${r.keluar >= 3 ? "text-red-600" : "text-amber-700"}`}>
+                    {r.keluar > 0 && `Keluar halaman ${r.keluar}× (total ${menit})`}
+                    {r.keluar > 0 && r.lain > 0 && " · "}
+                    {r.lain > 0 && `${r.lain} kejadian lain`}
+                  </p>
+                );
+              })()}
             </div>
             <span className="text-sm font-medium">
               {attempt.total_score === null ? "Perlu dinilai" : `${attempt.total_score} / ${totalWeight}`}

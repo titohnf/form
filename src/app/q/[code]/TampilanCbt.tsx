@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import type { Question } from "@/lib/types";
 import QuestionInput from "@/lib/QuestionInput";
 import PitaBiru from "./PitaBiru";
+import type { JenisKejadian } from "@/lib/kejadian";
 
 /**
  * Tampilan pengerjaan ala TKA/ANBK: pita biru dengan logo dan nama peserta,
@@ -99,6 +100,7 @@ function IkonWisuda() {
 }
 
 export default function TampilanCbt({
+  onKejadian,
   judul,
   nama,
   questions,
@@ -111,7 +113,9 @@ export default function TampilanCbt({
   kondisiAwal,
   onKondisi,
 }: {
-  /** Judul paket, tampil di kanan baris kedua kartu. */
+  /** Melaporkan kejadian (keluar halaman, salin, dst) untuk dicatat; hanya mencatat. */
+  onKejadian: (jenis: JenisKejadian, durasiMs?: number) => void;
+  /** Judul paket, tampil di pita biru. */
   judul: string;
   /** Nama peserta, tampil di kanan pita biru. */
   nama: string;
@@ -189,6 +193,163 @@ export default function TampilanCbt({
     return () => window.removeEventListener("beforeunload", cegah);
   }, []);
 
+
+  // ---------------------------------------------------------------------------
+  // Penjaga ujian. Ini PENGHALANG dan PENCATAT, bukan penguncian: halaman web
+  // tidak bisa melarang pindah tab, minimize, atau tangkapan layar. Yang
+  // dilakukan di sini: menyulitkan menyalin, menutup soal saat jendela
+  // kehilangan fokus, meminta layar penuh, dan mencatat kejadiannya untuk
+  // dinilai tutor. Tidak pernah mengubah nilai atau mengirim paksa.
+  // ---------------------------------------------------------------------------
+  const [peringatan, setPeringatan] = useState<null | "jauh" | "layar_penuh">(null);
+  const [jumlahKeluar, setJumlahKeluar] = useState(0);
+  const jauhSejak = useRef<number | null>(null);
+  const terakhirLapor = useRef<Record<string, number>>({});
+  const lapor = useRef(onKejadian);
+  useEffect(() => {
+    lapor.current = onKejadian;
+  });
+  const bisaLayarPenuh = () => typeof document !== "undefined" && !!document.documentElement.requestFullscreen;
+
+  /** Melapor satu kejadian; yang berulang cepat (klik kanan, salin) dibatasi sekali per 5 detik. */
+  function catat(jenis: JenisKejadian, durasiMs?: number) {
+    if (jenis !== "hilang_fokus" && jenis !== "kembali") {
+      const sekarang = Date.now();
+      if (sekarang - (terakhirLapor.current[jenis] ?? 0) < 5000) return;
+      terakhirLapor.current[jenis] = sekarang;
+    }
+    lapor.current(jenis, durasiMs);
+  }
+  const catatRef = useRef(catat);
+  useEffect(() => {
+    catatRef.current = catat;
+  });
+
+  // Meninggalkan halaman: pindah tab, minimize, atau jendela kehilangan fokus.
+  useEffect(() => {
+    let tunda: ReturnType<typeof setTimeout> | undefined;
+    const keluar = () => {
+      if (sudahKirim.current || jauhSejak.current !== null) return;
+      jauhSejak.current = Date.now();
+      setJumlahKeluar((n) => n + 1);
+      setPeringatan("jauh");
+      catatRef.current("hilang_fokus");
+    };
+    // Kehilangan fokus sesaat (mis. menu pilihan) tidak dihitung: dicek lagi sesudah jeda singkat.
+    const cekFokus = () => {
+      clearTimeout(tunda);
+      tunda = setTimeout(() => {
+        if (document.hidden || !document.hasFocus()) keluar();
+      }, 250);
+    };
+    const cekTersembunyi = () => {
+      if (document.hidden) keluar();
+    };
+    window.addEventListener("blur", cekFokus);
+    document.addEventListener("visibilitychange", cekTersembunyi);
+    return () => {
+      clearTimeout(tunda);
+      window.removeEventListener("blur", cekFokus);
+      document.removeEventListener("visibilitychange", cekTersembunyi);
+    };
+  }, []);
+
+  // Layar penuh: diminta saat Mulai. Keluar dari layar penuh dicatat dan ditutup
+  // layar peringatan. Perangkat tanpa dukungan (iPhone) tidak dikenai ini.
+  useEffect(() => {
+    if (!bisaLayarPenuh()) return;
+    const onUbah = () => {
+      if (document.fullscreenElement || sudahKirim.current) return;
+      catatRef.current("layar_penuh_keluar");
+      setPeringatan((p) => p ?? "layar_penuh");
+    };
+    document.addEventListener("fullscreenchange", onUbah);
+    // Halaman yang baru dimuat ulang tidak sedang layar penuh dan tidak boleh
+    // meminta sendiri (perlu penekanan tombol): beri waktu, lalu minta peserta masuk.
+    const cek = setTimeout(() => {
+      if (!document.fullscreenElement && !sudahKirim.current) setPeringatan((p) => p ?? "layar_penuh");
+    }, 1500);
+    return () => {
+      clearTimeout(cek);
+      document.removeEventListener("fullscreenchange", onUbah);
+    };
+  }, []);
+
+  // Menyulitkan menyalin, mencetak, dan membuka alat pengembang.
+  useEffect(() => {
+    const cegah = (e: Event) => e.preventDefault();
+    const onSalin = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.clipboardData?.setData("text/plain", "Soal tidak dapat disalin.");
+      catatRef.current("salin");
+    };
+    const onKlikKanan = (e: Event) => {
+      e.preventDefault();
+      catatRef.current("klik_kanan");
+    };
+    const onTombol = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && (k === "c" || k === "x")) {
+        e.preventDefault();
+        catatRef.current("salin");
+      } else if (mod && k === "p") {
+        e.preventDefault();
+        catatRef.current("cetak");
+      } else if ((mod && (k === "a" || k === "s" || k === "u")) || k === "f12" || (mod && e.shiftKey && (k === "i" || k === "j" || k === "c"))) {
+        e.preventDefault();
+        catatRef.current("tombol_terlarang");
+      }
+    };
+    const onTombolLepas = (e: KeyboardEvent) => {
+      if (e.key === "PrintScreen") {
+        // Paling banter mengosongkan papan klip; tangkapan layar tetap tidak bisa dicegah.
+        void navigator.clipboard?.writeText("").catch(() => {});
+        catatRef.current("screenshot_key");
+      }
+    };
+    const onCetak = () => catatRef.current("cetak");
+    document.addEventListener("copy", onSalin);
+    document.addEventListener("cut", onSalin);
+    document.addEventListener("contextmenu", onKlikKanan);
+    document.addEventListener("dragstart", cegah);
+    document.addEventListener("selectstart", cegah);
+    document.addEventListener("keydown", onTombol);
+    document.addEventListener("keyup", onTombolLepas);
+    window.addEventListener("beforeprint", onCetak);
+    return () => {
+      document.removeEventListener("copy", onSalin);
+      document.removeEventListener("cut", onSalin);
+      document.removeEventListener("contextmenu", onKlikKanan);
+      document.removeEventListener("dragstart", cegah);
+      document.removeEventListener("selectstart", cegah);
+      document.removeEventListener("keydown", onTombol);
+      document.removeEventListener("keyup", onTombolLepas);
+      window.removeEventListener("beforeprint", onCetak);
+    };
+  }, []);
+
+  /** Peserta menekan "Kembali ke ujian": durasi perginya dicatat, lalu layar peringatan ditutup. */
+  function kembaliKeUjian() {
+    if (jauhSejak.current !== null) {
+      catatRef.current("kembali", Date.now() - jauhSejak.current);
+      jauhSejak.current = null;
+    }
+    // Kalau layar penuh juga terlepas, minta lagi: tombol ini penekanan yang sah.
+    if (bisaLayarPenuh() && !document.fullscreenElement) {
+      void document.documentElement.requestFullscreen().catch(() => {});
+    }
+    setPeringatan(null);
+  }
+
+  // Tanda air nama peserta di seluruh layar ujian: tangkapan layar yang
+  // dibagikan tetap menunjuk siapa pemiliknya.
+  const tandaAir = useMemo(() => {
+    const aman = nama.replace(/[&<>"']/g, " ");
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='180'><text x='150' y='95' text-anchor='middle' font-family='sans-serif' font-size='17' font-weight='600' fill='rgba(20,60,120,0.09)' transform='rotate(-22 150 90)'>${aman}</text></svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  }, [nama]);
+
   function pindah(ke: number) {
     const baru = Math.max(0, Math.min(questions.length - 1, ke));
     setNomor(baru);
@@ -234,7 +395,10 @@ export default function TampilanCbt({
   ].join(" ");
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-slate-100">
+    <div className="cbt-akar fixed inset-0 z-50 flex select-none flex-col overflow-hidden bg-slate-100 [-webkit-touch-callout:none]">
+      {/* Cetak dikosongkan: halaman ujian tidak boleh keluar ke kertas atau PDF. */}
+      <style>{`@media print { .cbt-akar { display: none !important; } }`}</style>
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[55]" style={{ backgroundImage: tandaAir }} />
       {/* Pita biru: logo di kiri, nama peserta di kanan */}
       <PitaBiru
         subjudul={judul}
@@ -435,6 +599,49 @@ export default function TampilanCbt({
               className="mt-4 w-full rounded-full bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
             >
               Selesai dan kirim jawaban
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Layar peringatan: menutup seluruh soal, jadi tangkapan layar saat
+          jendela kehilangan fokus hanya memperlihatkan layar ini. */}
+      {peringatan && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl" role="alertdialog" aria-labelledby="judul-peringatan">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+              <svg viewBox="0 0 24 24" className="h-7 w-7" fill="currentColor" aria-hidden="true">
+                <path d="M12 2 1 21h22L12 2Zm1 15h-2v-2h2v2Zm0-4h-2V9h2v4Z" />
+              </svg>
+            </span>
+            {peringatan === "jauh" ? (
+              <>
+                <h3 id="judul-peringatan" className="mt-3 text-lg font-semibold text-gray-900">
+                  Kamu meninggalkan halaman ujian
+                </h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Jangan membuka tab, aplikasi, atau jendela lain selama ujian. Kejadian ini <b>dicatat</b> dan dapat dilihat oleh tutor.
+                </p>
+                <p className="mt-3 inline-block rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800">
+                  Tercatat {jumlahKeluar} kali
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 id="judul-peringatan" className="mt-3 text-lg font-semibold text-gray-900">
+                  Ujian berjalan di layar penuh
+                </h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  Tekan tombol di bawah untuk masuk layar penuh dan melanjutkan. Waktu tetap berjalan.
+                </p>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={kembaliKeUjian}
+              className="mt-5 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700"
+            >
+              {peringatan === "jauh" ? "Kembali ke ujian" : "Masuk layar penuh"}
             </button>
           </div>
         </div>

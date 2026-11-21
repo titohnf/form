@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Branching, Question } from "@/lib/types";
 import { BRANCH_END } from "@/lib/types";
 import QuestionInput from "@/lib/QuestionInput";
 import TampilanCbt, { type KondisiCbt } from "./TampilanCbt";
 import MasukCbt from "./MasukCbt";
-import { startAttempt, startAssessmentAttempt, saveAnswer, finalizeAttempt } from "./actions";
+import { startAttempt, startAssessmentAttempt, saveAnswer, finalizeAttempt, catatKejadian } from "./actions";
+import { susunUntukPeserta } from "@/lib/acak";
 
 interface Student {
   id: string;
@@ -35,6 +36,8 @@ export default function QuizForm({
   students,
   sequential,
   cbt,
+  acakSoal,
+  acakPilihan,
   timeLimitMinutes,
   judul,
   kode,
@@ -48,6 +51,9 @@ export default function QuizForm({
   sequential: boolean;
   /** Tampilan ala TKA: satu soal per layar, timer, daftar soal. */
   cbt: boolean;
+  /** Acak urutan soal / pilihan per peserta (hanya tampilan TKA; stabil per percobaan). */
+  acakSoal: boolean;
+  acakPilihan: boolean;
   timeLimitMinutes: number | null;
   /** Judul paket, ditampilkan di bilah atas tampilan TKA. */
   judul: string;
@@ -72,6 +78,11 @@ export default function QuizForm({
   // Hanya dipakai tampilan TKA. `skew` = jam server dikurangi jam perangkat.
   const [mulaiMs, setMulaiMs] = useState<number | null>(null);
   const [skew, setSkew] = useState(0);
+  // Urutan yang diacak per peserta, dengan benih id percobaannya.
+  const soalCbt = useMemo(
+    () => (cbt && attemptId ? susunUntukPeserta(questions, attemptId, acakSoal, acakPilihan) : questions),
+    [cbt, attemptId, questions, acakSoal, acakPilihan],
+  );
   const [kondisi, setKondisi] = useState<KondisiCbt>({ nomor: 0, ragu: [] });
 
   // Kalau halaman dimuat ulang di tengah ujian (tab tertutup, HP kehabisan
@@ -172,6 +183,10 @@ export default function QuizForm({
       } catch {
         /* abaikan */
       }
+      // Keluar dari layar penuh supaya halaman hasil tampil biasa.
+      if (typeof document !== "undefined" && document.fullscreenElement) {
+        void document.exitFullscreen().catch(() => {});
+      }
     }
     await finalizeAttempt(shareCode, attemptId);
   }
@@ -264,9 +279,12 @@ export default function QuizForm({
   if (cbt) {
     return (
       <TampilanCbt
+        onKejadian={(jenis, durasi) => {
+          if (attemptId) void catatKejadian(quizId, attemptId, jenis, durasi);
+        }}
         judul={judul}
         nama={assessment?.studentName ?? (students.length > 0 ? students.find((s) => s.id === studentId)?.name : undefined) ?? guestName}
-        questions={questions}
+        questions={soalCbt}
         responses={responses}
         onAnswer={handleAnswer}
         onSubmit={handleSubmit}

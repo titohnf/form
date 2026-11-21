@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { totalScore } from "@/lib/grading";
 import type { Question, QuizSettings } from "@/lib/types";
+import { JENIS_KEJADIAN } from "@/lib/kejadian";
 
 export type StartAttemptResult =
   | { attemptId: string; startedAt?: string; serverNow?: string }
@@ -203,4 +204,27 @@ export async function startAssessmentAttempt(shareCode: string): Promise<StartAt
   if (error) return { error: error.message };
   if (!data) return { error: "Tidak bisa memulai asesmen." };
   return { attemptId: data as string };
+}
+
+/**
+ * Mencatat satu kejadian selama peserta mengerjakan (keluar halaman, mencoba
+ * menyalin, dst). Hanya mencatat: tidak mengubah nilai dan tidak mengirim
+ * paksa. Sengaja diam-diam bila gagal: tabelnya (migrasi Tera 223) mungkin
+ * belum dibuat, dan itu tidak boleh mengganggu peserta yang sedang ujian.
+ * Yang boleh masuk dibatasi di database (percobaan harus berjalan dan paketnya
+ * terbit), dan di sini jenisnya dibatasi pada daftar yang dikenal.
+ */
+export async function catatKejadian(quizId: string, attemptId: string, jenis: string, durasiMs?: number) {
+  if (!(JENIS_KEJADIAN as readonly string[]).includes(jenis)) return;
+  try {
+    const supabase = await createClient();
+    await supabase.from("attempt_events").insert({
+      attempt_id: attemptId,
+      quiz_id: quizId,
+      kind: jenis,
+      durasi_ms: typeof durasiMs === "number" && Number.isFinite(durasiMs) ? Math.min(Math.max(0, Math.round(durasiMs)), 86_400_000) : null,
+    });
+  } catch {
+    /* pencatatan tidak boleh mengganggu ujian */
+  }
 }
