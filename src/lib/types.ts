@@ -243,6 +243,8 @@ export interface QuizSettings {
    * kembali dan dipakai untuk percabangan).
    */
   cbt_mode: boolean;
+  /** Tanda air nama peserta di layar ujian TKA. Mati bawaannya: manfaatnya terbatas dan mengganggu keterbacaan. */
+  tanda_air: boolean;
 }
 
 export const defaultQuizSettings: QuizSettings = {
@@ -255,6 +257,7 @@ export const defaultQuizSettings: QuizSettings = {
   closes_at: null,
   sequential_mode: false,
   cbt_mode: false,
+  tanda_air: false,
 };
 
 export interface Quiz {

@@ -36,6 +36,7 @@ export default function QuizForm({
   students,
   sequential,
   cbt,
+  tandaAir,
   acakSoal,
   acakPilihan,
   timeLimitMinutes,
@@ -51,6 +52,8 @@ export default function QuizForm({
   sequential: boolean;
   /** Tampilan ala TKA: satu soal per layar, timer, daftar soal. */
   cbt: boolean;
+  /** Tanda air nama peserta di layar ujian (mati bawaannya). */
+  tandaAir: boolean;
   /** Acak urutan soal / pilihan per peserta (hanya tampilan TKA; stabil per percobaan). */
   acakSoal: boolean;
   acakPilihan: boolean;
@@ -279,6 +282,7 @@ export default function QuizForm({
   if (cbt) {
     return (
       <TampilanCbt
+        tandaAir={tandaAir}
         onKejadian={(jenis, durasi) => {
           if (attemptId) void catatKejadian(quizId, attemptId, jenis, durasi);
         }}

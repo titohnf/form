@@ -56,6 +56,20 @@ export default function MasukCbt({
 
   const nama = namaAsesmen ?? (students.length > 0 ? students.find((s) => s.id === studentId)?.name ?? "" : guestName.trim());
 
+  /**
+   * Layar penuh baru diminta saat tombol Mulai Mengerjakan ditekan, bukan di
+   * halaman Selamat Datang. Browser hanya mengizinkannya di dalam penekanan
+   * tombol, dan percobaan memintanya dari tombol Lanjut ditolak browser
+   * ("not granted"). Perangkat yang tidak mendukungnya (iPhone) dilewati.
+   */
+  function mintaLayarPenuh() {
+    try {
+      if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.().catch(() => {});
+    } catch {
+      /* tidak didukung */
+    }
+  }
+
   function lanjut() {
     if (!nama) {
       setGalatLokal(students.length > 0 ? "Pilih namamu dulu." : "Nama wajib diisi.");
@@ -66,14 +80,7 @@ export default function MasukCbt({
   }
 
   async function mulai() {
-    // Layar penuh hanya boleh diminta di dalam penekanan tombol, jadi di sini,
-    // sebelum menunggu apa pun. Perangkat yang tidak mendukungnya (iPhone)
-    // dilewati tanpa masalah.
-    try {
-      void document.documentElement.requestFullscreen?.().catch(() => {});
-    } catch {
-      /* tidak didukung */
-    }
+    mintaLayarPenuh();
     setMemulai(true);
     await onMulai();
     setMemulai(false);

@@ -181,6 +181,7 @@ export default async function PublicQuizPage({
             students={learners}
             sequential={settings.sequential_mode ?? false}
             cbt={settings.cbt_mode ?? false}
+            tandaAir={settings.tanda_air ?? false}
             acakSoal={settings.shuffle_questions ?? false}
             acakPilihan={settings.shuffle_choices ?? false}
             timeLimitMinutes={settings.time_limit_minutes ?? null}

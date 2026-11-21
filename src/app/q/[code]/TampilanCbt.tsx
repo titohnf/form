@@ -100,6 +100,7 @@ function IkonWisuda() {
 }
 
 export default function TampilanCbt({
+  tandaAir: pakaiTandaAir,
   onKejadian,
   judul,
   nama,
@@ -113,6 +114,8 @@ export default function TampilanCbt({
   kondisiAwal,
   onKondisi,
 }: {
+  /** Tampilkan tanda air nama peserta (mati bawaannya). */
+  tandaAir: boolean;
   /** Melaporkan kejadian (keluar halaman, salin, dst) untuk dicatat; hanya mencatat. */
   onKejadian: (jenis: JenisKejadian, durasiMs?: number) => void;
   /** Judul paket, tampil di pita biru. */
@@ -398,7 +401,9 @@ export default function TampilanCbt({
     <div className="cbt-akar fixed inset-0 z-50 flex select-none flex-col overflow-hidden bg-slate-100 [-webkit-touch-callout:none]">
       {/* Cetak dikosongkan: halaman ujian tidak boleh keluar ke kertas atau PDF. */}
       <style>{`@media print { .cbt-akar { display: none !important; } }`}</style>
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[55]" style={{ backgroundImage: tandaAir }} />
+      {pakaiTandaAir && (
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[55]" style={{ backgroundImage: tandaAir }} />
+      )}
       {/* Pita biru: logo di kiri, nama peserta di kanan */}
       <PitaBiru
         subjudul={judul}
