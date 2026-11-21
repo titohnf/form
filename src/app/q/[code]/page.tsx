@@ -101,16 +101,13 @@ export default async function PublicQuizPage({
   const notYetOpen = settings.opens_at && now < new Date(settings.opens_at);
   const alreadyClosed = settings.closes_at && now > new Date(settings.closes_at);
 
-  const { data: questions } = await supabase
-    .from("questions")
-    // Tanpa correct_answer dan explanation: halaman ini dibaca murid. Gambar
-    // `stimulus_images` ikut hanya karena tipe Question masih memuatnya;
-    // gambar sekarang hidup di dalam `prompt`. Lihat `lib/isi-soal.tsx`.
-    .select("id, quiz_id, type, prompt, options, weight, order_index, branching, stimulus_images")
-    .eq("quiz_id", typedQuiz.id)
-    .order("order_index", { ascending: true });
+  // Soal dibaca lewat fungsi database, bukan langsung dari tabel `questions`:
+  // tabel itu memuat kunci jawaban dan pembahasan, yang tidak boleh sampai ke
+  // peserta (migrasi Tera 225/226). Fungsinya hanya mengembalikan kolom yang
+  // dipakai layar ini, dan hanya untuk paket yang terbit, sudah terurut.
+  const { data: questions } = await supabase.rpc("soal_peserta", { p_quiz_id: typedQuiz.id });
 
-  let orderedQuestions = (questions ?? []) as Question[];
+  let orderedQuestions = (questions ?? []) as unknown as Question[];
   // Shuffling questions would break branching's order_index-based fallback, so it's ignored
   // in sequential mode (a quiz author using branching wants a deliberate path).
   // Tampilan TKA mengacak di sisi peserta dengan benih id percobaannya (lihat

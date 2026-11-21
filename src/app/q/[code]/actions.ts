@@ -2,8 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { totalScore } from "@/lib/grading";
-import type { Question, QuizSettings } from "@/lib/types";
+import type { QuizSettings } from "@/lib/types";
 import { JENIS_KEJADIAN } from "@/lib/kejadian";
 
 export type StartAttemptResult =
@@ -107,82 +106,24 @@ export async function saveAnswer(
 export async function finalizeAttempt(shareCode: string, attemptId: string) {
   const supabase = await createClient();
 
-  const { data: attempt } = await supabase
-    .from("attempts")
-    .select("id, quiz_id")
-    .eq("id", attemptId)
-    .single();
+  // Seluruh penilaian terjadi di database (`kirim_percobaan`, migrasi Tera
+  // 225): ia membaca soal beserta kuncinya, menilai lewat `nilai_jawaban_banyak()`
+  // (satu-satunya definisi aturan skoring, dipakai bersama Sora dan Tera),
+  // menulis skor tiap jawaban, dan menutup percobaan. Kunci jawaban tidak
+  // pernah meninggalkan database, dan percobaan yang sudah dikirim ditolak
+  // sehingga skornya tidak bisa dinilai ulang atau ditimpa.
+  const { error } = await supabase.rpc("kirim_percobaan", { p_attempt_id: attemptId });
 
-  if (!attempt) {
-    redirect(`/q/${shareCode}?error=Percobaan+tidak+ditemukan`);
-  }
-
-  const { data: questions } = await supabase
-    .from("questions")
-    .select("*")
-    .eq("quiz_id", attempt!.quiz_id);
-
-  const { data: existingAnswers } = await supabase
-    .from("answers")
-    .select("*")
-    .eq("attempt_id", attemptId);
-
-  const daftar = (questions as Question[] | null ?? []).map((question) => ({
-    question,
-    response: (existingAnswers ?? []).find((a) => a.question_id === question.id)?.response ?? null,
-  }));
-
-  // Penilaiannya terjadi di database, lewat `nilai_jawaban()` (migrasi tera
-  // 136) — satu-satunya definisi aturan skoring, dipakai bersama oleh Sora dan
-  // Tera. Sampai sebelum ini aturan yang sama ditulis dua kali di dua repo yang
-  // tidak berbagi paket npm, dan yang menjaganya tetap sama cuma komentar.
-  //
-  // Sekali panggil untuk seluruh isi percobaan, bukan sekali per soal: kuis dua
-  // puluh soal berarti dua puluh perjalanan ke Singapura di jalur yang tadinya
-  // nol. Keluarannya sejajar indeks dengan masukannya.
-  const { data: nilaiList, error: galatNilai } = await supabase.rpc("nilai_jawaban_banyak", {
-    p_daftar: daftar.map(({ question, response }) => ({
-      tipe: question.type,
-      opsi: question.options,
-      kunci: question.correct_answer,
-      jawaban: response,
-      bobot: question.weight,
-    })),
-  });
-
-  if (galatNilai) {
+  if (error) {
+    // Terkirim dua kali (klik ganda, muat ulang): hasilnya sudah ada.
+    if (error.message.includes("sudah_dikirim")) {
+      redirect(`/q/${shareCode}/result/${attemptId}`);
+    }
+    if (error.message.includes("percobaan_tidak_ditemukan")) {
+      redirect(`/q/${shareCode}?error=Percobaan+tidak+ditemukan`);
+    }
     redirect(`/q/${shareCode}?error=Gagal+menilai+jawaban`);
   }
-
-  const nilai = (nilaiList as (number | string | null)[] | null) ?? [];
-
-  const gradedAnswers = daftar.map(({ question, response }, i) => {
-    // `null` berarti tipe yang tidak dinilai mesin (esai, unggah berkas) —
-    // bukan nol. Membedakannya di sini yang membuat soal esai masuk antrean
-    // penilaian tutor alih-alih terbaca sebagai jawaban salah.
-    const skor = nilai[i] === null || nilai[i] === undefined ? null : Number(nilai[i]);
-    return {
-      attempt_id: attemptId,
-      question_id: question.id,
-      quiz_id: attempt!.quiz_id,
-      response,
-      auto_score: skor,
-      manual_score: null,
-      needs_manual_grading: skor === null,
-    };
-  });
-
-  if (gradedAnswers.length > 0) {
-    await supabase
-      .from("answers")
-      .upsert(gradedAnswers, { onConflict: "attempt_id,question_id" });
-  }
-
-  const score = totalScore(gradedAnswers);
-  await supabase
-    .from("attempts")
-    .update({ total_score: score, submitted_at: new Date().toISOString() })
-    .eq("id", attemptId);
 
   redirect(`/q/${shareCode}/result/${attemptId}`);
 }

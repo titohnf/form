@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Attempt, Question, QuizSettings } from "@/lib/types";
+import type { Attempt, QuizSettings } from "@/lib/types";
 import { rankAttempts, computeBadges } from "@/lib/gamification";
 
 export default async function AttemptResultPage({
@@ -19,15 +19,10 @@ export default async function AttemptResultPage({
 
   if (!attempt) notFound();
 
-  const { data: answers } = await supabase
-    .from("answers")
-    .select("*, questions(prompt, weight, type)")
-    .eq("attempt_id", attemptId);
-
-  const totalWeight = ((answers ?? []) as unknown as { questions: Question }[]).reduce(
-    (sum, a) => sum + (a.questions?.weight ?? 0),
-    0,
-  );
+  // Total bobot dari fungsi database: peserta tidak lagi boleh membaca tabel
+  // `questions` (tempat kunci jawaban), jadi tidak bisa menjumlahkannya sendiri.
+  const { data: bobot } = await supabase.rpc("bobot_paket", { p_quiz_id: attempt.quiz_id });
+  const totalWeight = Number(bobot ?? 0);
 
   const typedAttempt = attempt as Attempt;
   const settings = ((attempt as unknown as { quizzes: { settings: Partial<QuizSettings> } }).quizzes
