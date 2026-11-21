@@ -32,6 +32,12 @@ export async function startAttempt(
   const settings = (quiz.settings ?? {}) as Partial<QuizSettings>;
   const now = new Date();
 
+  // Try out bertampilan TKA tidak lagi menerima nama bebas: peserta masuk dengan
+  // kode peserta atau akun Tera supaya hasilnya pasti milik siapa.
+  if (settings.cbt_mode) {
+    return { error: "Masuk dengan kode peserta atau akun Tera." };
+  }
+
   if (settings.opens_at && now < new Date(settings.opens_at)) {
     return { error: "Paket soal belum dibuka." };
   }
@@ -63,6 +69,49 @@ export async function startAttempt(
   // `serverNow` dikirim supaya timer di layar murid tidak ikut jam perangkatnya
   // yang bisa meleset: yang dipakai selisih jam server dan jam perangkat.
   return { attemptId: attempt.id, startedAt: attempt.started_at, serverNow: new Date().toISOString() };
+}
+
+/** Pesan untuk peserta dari kode galat fungsi database (migrasi Tera 227). */
+function pesanMasuk(pesan: string): string {
+  if (pesan.includes("kode_tidak_dikenal")) return "Kode tidak dikenal. Periksa lagi kodenya, atau tanya tutor.";
+  if (pesan.includes("sudah_mengerjakan")) return "Kamu sudah mengerjakan try out ini.";
+  if (pesan.includes("belum_dibuka")) return "Paket soal belum dibuka.";
+  if (pesan.includes("sudah_ditutup")) return "Paket soal sudah ditutup.";
+  if (pesan.includes("paket_tidak_tersedia")) return "Paket soal tidak tersedia.";
+  if (pesan.includes("bukan_siswa")) return "Akun ini bukan akun siswa. Masuk dengan akun siswa, atau pakai kode peserta.";
+  if (pesan.includes("belum_masuk")) return "Sesi masukmu habis. Masuk lagi dengan akun Tera.";
+  return "Tidak bisa memulai. Coba lagi, atau tanya tutor.";
+}
+
+/** Memeriksa kode peserta; hanya mengembalikan nama untuk layar konfirmasi. */
+export async function cekKodePeserta(kode: string): Promise<{ nama: string } | { error: string }> {
+  const bersih = kode.trim();
+  if (!bersih) return { error: "Kode wajib diisi." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("masuk_peserta", { p_kode: bersih });
+  if (error) return { error: "Tidak bisa memeriksa kode. Coba lagi." };
+  if (!data) return { error: "Kode tidak dikenal. Periksa lagi kodenya, atau tanya tutor." };
+  return { nama: data as string };
+}
+
+type HasilMulai = { attempt_id: string; started_at: string; server_now: string; nama: string };
+
+/** Mulai (atau lanjutkan) percobaan dengan kode peserta murid luar. */
+export async function mulaiDenganKode(shareCode: string, kode: string): Promise<StartAttemptResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("mulai_percobaan_peserta", { p_share_code: shareCode, p_kode: kode });
+  if (error || !data) return { error: pesanMasuk(error?.message ?? "") };
+  const h = data as HasilMulai;
+  return { attemptId: h.attempt_id, startedAt: h.started_at, serverNow: h.server_now };
+}
+
+/** Mulai (atau lanjutkan) percobaan siswa Tera yang sedang login. */
+export async function mulaiDenganAkun(shareCode: string): Promise<StartAttemptResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("mulai_percobaan_akun", { p_share_code: shareCode });
+  if (error || !data) return { error: pesanMasuk(error?.message ?? "") };
+  const h = data as HasilMulai;
+  return { attemptId: h.attempt_id, startedAt: h.started_at, serverNow: h.server_now };
 }
 
 export async function saveAnswer(

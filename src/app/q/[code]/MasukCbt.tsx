@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import PitaBiru from "./PitaBiru";
+import { createClient } from "@/lib/supabase/client";
 
 interface Student {
   id: string;
@@ -22,6 +23,10 @@ export default function MasukCbt({
   jumlahSoal,
   menit,
   namaAsesmen,
+  akun,
+  namaIdentitas,
+  onIdentitas,
+  onCekKode,
   students,
   studentId,
   onStudentId,
@@ -39,6 +44,13 @@ export default function MasukCbt({
   menit: number | null;
   /** Nama murid yang sudah login (penugasan asesmen); mengabaikan isian nama. */
   namaAsesmen: string | null;
+  /** Nama siswa Tera yang sudah login di browser ini, atau null. */
+  akun: string | null;
+  /** Nama peserta yang sudah dikenali (dari kode atau akun), untuk layar konfirmasi. */
+  namaIdentitas: string | null;
+  onIdentitas: (i: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null) => void;
+  /** Memeriksa kode peserta; mengembalikan nama atau pesan galat. */
+  onCekKode: (kode: string) => Promise<{ nama: string } | { error: string }>;
   students: Student[];
   studentId: string;
   onStudentId: (id: string) => void;
@@ -54,7 +66,15 @@ export default function MasukCbt({
   const [galatLokal, setGalatLokal] = useState<string | null>(null);
   const [memulai, setMemulai] = useState(false);
 
-  const nama = namaAsesmen ?? (students.length > 0 ? students.find((s) => s.id === studentId)?.name ?? "" : guestName.trim());
+  // Try out terbuka (tanpa roster kelas): peserta dikenali dari kode atau akun, tidak mengetik nama.
+  const pakaiIdentitas = !namaAsesmen && students.length === 0;
+  const [cara, setCara] = useState<"kode" | "akun">(akun ? "akun" : "kode");
+  const [kodeInput, setKodeInput] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [sibuk, setSibuk] = useState(false);
+
+  const nama = namaAsesmen ?? (pakaiIdentitas ? namaIdentitas ?? "" : students.length > 0 ? students.find((s) => s.id === studentId)?.name ?? "" : guestName.trim());
 
   /**
    * Layar penuh baru diminta saat tombol Mulai Mengerjakan ditekan, bukan di
@@ -70,7 +90,48 @@ export default function MasukCbt({
     }
   }
 
+  async function masukDenganAkun(e: React.FormEvent) {
+    e.preventDefault();
+    setSibuk(true);
+    setGalatLokal(null);
+    const { error: galat } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
+    setSibuk(false);
+    if (galat) {
+      setGalatLokal(
+        galat.message.toLowerCase().includes("invalid")
+          ? "Email atau password salah. Coba cek lagi, atau tanya tutor."
+          : galat.message,
+      );
+      return;
+    }
+    // Server component membaca ulang sesi dan mengirim nama akun ke sini.
+    router.refresh();
+  }
+
+  async function lanjutIdentitas() {
+    setGalatLokal(null);
+    if (cara === "akun") {
+      if (!akun) return;
+      onIdentitas({ tipe: "akun", nama: akun });
+      setTahap("konfirmasi");
+      return;
+    }
+    setSibuk(true);
+    const hasil = await onCekKode(kodeInput);
+    setSibuk(false);
+    if ("error" in hasil) {
+      setGalatLokal(hasil.error);
+      return;
+    }
+    onIdentitas({ tipe: "kode", kode: kodeInput.trim(), nama: hasil.nama });
+    setTahap("konfirmasi");
+  }
+
   function lanjut() {
+    if (pakaiIdentitas) {
+      void lanjutIdentitas();
+      return;
+    }
     if (!nama) {
       setGalatLokal(students.length > 0 ? "Pilih namamu dulu." : "Nama wajib diisi.");
       return;
@@ -115,6 +176,84 @@ export default function MasukCbt({
                   lanjut();
                 }}
               >
+                {pakaiIdentitas && (
+                  <div>
+                    <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-sm font-medium">
+                      {(["kode", "akun"] as const).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setCara(c)}
+                          className={`rounded-md px-3 py-2 ${cara === c ? "bg-white text-[#1b4f94] shadow" : "text-gray-600"}`}
+                        >
+                          {c === "kode" ? "Kode peserta" : "Akun Tera"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {cara === "kode" ? (
+                      <div className="mt-3">
+                        <label htmlFor="kode-peserta" className="text-xs font-bold text-gray-800">
+                          Kode Peserta:
+                        </label>
+                        <input
+                          id="kode-peserta"
+                          value={kodeInput}
+                          onChange={(e) => setKodeInput(e.target.value.toUpperCase())}
+                          placeholder="Contoh: Q6G484"
+                          autoComplete="off"
+                          autoCapitalize="characters"
+                          className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm tracking-widest shadow-sm outline-none focus:border-blue-600"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Kode dikirim tutor lewat WhatsApp.</p>
+                      </div>
+                    ) : akun ? (
+                      <div className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+                        Masuk sebagai <span className="font-semibold">{akun}</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await createClient().auth.signOut();
+                            router.refresh();
+                          }}
+                          className="ml-2 text-xs underline"
+                        >
+                          bukan kamu? keluar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex flex-col gap-3">
+                        <p className="text-xs text-gray-500">Untuk siswa Bimbel Tera: masuk dengan email dan password akun Tera.</p>
+                        <input
+                          type="email"
+                          autoComplete="username"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="Email"
+                          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-blue-600"
+                        />
+                        <input
+                          type="password"
+                          autoComplete="current-password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Password"
+                          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-blue-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={masukDenganAkun}
+                          disabled={sibuk || !email || !password}
+                          className="rounded-lg border border-[#1b4f94] px-4 py-2.5 text-sm font-semibold text-[#1b4f94] hover:bg-blue-50 disabled:opacity-50"
+                        >
+                          {sibuk ? "Masuk…" : "Masuk dengan akun"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!pakaiIdentitas && (
                 <div>
                   <label htmlFor="nama-peserta" className="text-xs font-bold text-gray-800">
                     {students.length > 0 ? "Nama Peserta:" : "Nama Lengkap:"}
@@ -145,6 +284,8 @@ export default function MasukCbt({
                   )}
                 </div>
 
+                )}
+
                 <div>
                   <label htmlFor="paket-soal" className="text-xs font-bold text-gray-800">
                     Paket Soal:
@@ -169,7 +310,8 @@ export default function MasukCbt({
 
                 <button
                   type="submit"
-                  className="mt-1 w-full rounded-lg bg-gradient-to-r from-[#1b4f94] to-[#2a6ab5] px-4 py-3 text-sm font-semibold text-white shadow hover:opacity-95"
+                  disabled={sibuk || (pakaiIdentitas && cara === "akun" && !akun)}
+                  className="mt-1 w-full disabled:opacity-50 rounded-lg bg-gradient-to-r from-[#1b4f94] to-[#2a6ab5] px-4 py-3 text-sm font-semibold text-white shadow hover:opacity-95"
                 >
                   Lanjut
                 </button>

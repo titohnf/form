@@ -138,6 +138,20 @@ export default async function PublicQuizPage({
     (row) => ({ id: row.learner_id, name: row.learner_name }),
   );
 
+  // Siswa Tera yang sudah login di browser ini: dikenali dari sesinya, jadi
+  // try out TKA tidak perlu kode. Hanya untuk akun siswa; admin/tutor yang
+  // kebetulan login tidak ditawari masuk sebagai peserta.
+  let akun: string | null = null;
+  if (!entry && settings.cbt_mode) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: me } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).maybeSingle();
+      if (me && (me.role === "student" || me.role === "mandiri")) akun = me.full_name ?? "Murid";
+    }
+  }
+
   // Daftar paket try out TKA yang bisa dipilih di halaman masuk. Hanya paket
   // bertampilan TKA yang sudah terbit; paket lain (asesmen kelas, remedial)
   // tidak ikut terdaftar supaya kodenya tidak tersebar lewat daftar ini.
@@ -186,6 +200,7 @@ export default async function PublicQuizPage({
             kode={code}
             paket={paketTkA}
             assessment={entry ? { studentName } : null}
+            akun={akun}
           />
         </div>
       )}

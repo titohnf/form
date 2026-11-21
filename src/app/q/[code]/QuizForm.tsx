@@ -6,7 +6,7 @@ import { BRANCH_END } from "@/lib/types";
 import QuestionInput from "@/lib/QuestionInput";
 import TampilanCbt, { type KondisiCbt } from "./TampilanCbt";
 import MasukCbt from "./MasukCbt";
-import { startAttempt, startAssessmentAttempt, saveAnswer, finalizeAttempt, catatKejadian, catatPosisi } from "./actions";
+import { startAttempt, startAssessmentAttempt, mulaiDenganKode, mulaiDenganAkun, cekKodePeserta, saveAnswer, finalizeAttempt, catatKejadian, catatPosisi } from "./actions";
 import { susunUntukPeserta } from "@/lib/acak";
 
 interface Student {
@@ -44,6 +44,7 @@ export default function QuizForm({
   kode,
   paket,
   assessment,
+  akun,
 }: {
   quizId: string;
   shareCode: string;
@@ -69,10 +70,14 @@ export default function QuizForm({
    * roster dilewati sama sekali.
    */
   assessment: { studentName: string } | null;
+  /** Nama siswa Tera yang sedang login (try out TKA), atau null. */
+  akun: string | null;
 }) {
   const [step, setStep] = useState<"name" | "quiz" | "submitting">("name");
   const [guestName, setGuestName] = useState("");
   const [studentId, setStudentId] = useState("");
+  // Identitas peserta try out TKA: kode peserta (murid luar) atau akun Tera.
+  const [identitas, setIdentitas] = useState<{ tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
@@ -140,13 +145,20 @@ export default function QuizForm({
       return;
     }
 
-    const name = students.length > 0 ? students.find((s) => s.id === studentId)?.name ?? "" : guestName.trim();
+    const pakaiIdentitas = cbt && students.length === 0;
+    const name = pakaiIdentitas
+      ? identitas?.nama ?? ""
+      : students.length > 0 ? students.find((s) => s.id === studentId)?.name ?? "" : guestName.trim();
     if (!name) {
-      setError("Nama wajib diisi");
+      setError(pakaiIdentitas ? "Masuk dulu dengan kode peserta atau akun Tera." : "Nama wajib diisi");
       return;
     }
     setError(null);
-    const result = await startAttempt(shareCode, name, students.length > 0 ? studentId : null);
+    const result = pakaiIdentitas
+      ? identitas?.tipe === "kode"
+        ? await mulaiDenganKode(shareCode, identitas.kode)
+        : await mulaiDenganAkun(shareCode)
+      : await startAttempt(shareCode, name, students.length > 0 ? studentId : null);
     if ("error" in result) {
       setError(result.error);
       return;
@@ -213,6 +225,10 @@ export default function QuizForm({
         jumlahSoal={questions.length}
         menit={timeLimitMinutes}
         namaAsesmen={assessment?.studentName ?? null}
+        akun={akun}
+        namaIdentitas={identitas?.nama ?? null}
+        onIdentitas={setIdentitas}
+        onCekKode={cekKodePeserta}
         students={students}
         studentId={studentId}
         onStudentId={setStudentId}
