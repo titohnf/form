@@ -228,3 +228,24 @@ export async function catatKejadian(quizId: string, attemptId: string, jenis: st
     /* pencatatan tidak boleh mengganggu ujian */
   }
 }
+
+/**
+ * Denyut posisi: layar ujian mengirim nomor soal yang sedang dibuka (nomor
+ * ASLI, bukan urutan acak peserta) supaya halaman Live Monitoring tahu di mana
+ * peserta berada, bukan hanya soal yang terakhir ia jawab. Sekaligus
+ * memperbarui `last_active_at`, jadi peserta yang menutup tab tampak tidak aktif.
+ * Hanya untuk percobaan yang belum dikirim; gagal diam-diam.
+ */
+export async function catatPosisi(attemptId: string, nomorAsli: number) {
+  if (!Number.isInteger(nomorAsli) || nomorAsli < 0 || nomorAsli > 1000) return;
+  try {
+    const supabase = await createClient();
+    await supabase
+      .from("attempts")
+      .update({ current_question_index: nomorAsli, last_active_at: new Date().toISOString() })
+      .eq("id", attemptId)
+      .is("submitted_at", null);
+  } catch {
+    /* denyut tidak boleh mengganggu ujian */
+  }
+}

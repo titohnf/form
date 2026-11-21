@@ -6,7 +6,7 @@ import { BRANCH_END } from "@/lib/types";
 import QuestionInput from "@/lib/QuestionInput";
 import TampilanCbt, { type KondisiCbt } from "./TampilanCbt";
 import MasukCbt from "./MasukCbt";
-import { startAttempt, startAssessmentAttempt, saveAnswer, finalizeAttempt, catatKejadian } from "./actions";
+import { startAttempt, startAssessmentAttempt, saveAnswer, finalizeAttempt, catatKejadian, catatPosisi } from "./actions";
 import { susunUntukPeserta } from "@/lib/acak";
 
 interface Student {
@@ -283,6 +283,9 @@ export default function QuizForm({
     return (
       <TampilanCbt
         tandaAir={tandaAir}
+        onPosisi={(nomorAsli) => {
+          if (attemptId) void catatPosisi(attemptId, nomorAsli);
+        }}
         onKejadian={(jenis, durasi) => {
           if (attemptId) void catatKejadian(quizId, attemptId, jenis, durasi);
         }}

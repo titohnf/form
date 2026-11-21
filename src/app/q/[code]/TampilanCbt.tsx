@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import type { Question } from "@/lib/types";
 import QuestionInput from "@/lib/QuestionInput";
 import PitaBiru from "./PitaBiru";
+import { terjawab } from "@/lib/terjawab";
 import type { JenisKejadian } from "@/lib/kejadian";
 
 /**
@@ -18,14 +19,7 @@ import type { JenisKejadian } from "@/lib/kejadian";
  * dengan tampilan lain.
  */
 
-/** Apakah sebuah jawaban dianggap sudah diisi (untuk warna nomor di daftar soal). */
-export function terjawab(v: unknown): boolean {
-  if (v === null || v === undefined) return false;
-  if (typeof v === "string") return v.trim() !== "";
-  if (Array.isArray(v)) return v.some(terjawab);
-  if (typeof v === "object") return Object.values(v as Record<string, unknown>).some(terjawab);
-  return true; // boolean dan angka, termasuk false dan 0
-}
+export { terjawab };
 
 // Soal di layar murid bawaannya 14px, terlalu kecil untuk ujian: bawaan di sini
 // sudah diperbesar (sedang), dan ada dua tingkat lagi di atasnya.
@@ -100,6 +94,7 @@ function IkonWisuda() {
 }
 
 export default function TampilanCbt({
+  onPosisi,
   tandaAir: pakaiTandaAir,
   onKejadian,
   judul,
@@ -114,6 +109,8 @@ export default function TampilanCbt({
   kondisiAwal,
   onKondisi,
 }: {
+  /** Denyut posisi: nomor ASLI soal yang sedang dibuka, untuk halaman Live Monitoring. */
+  onPosisi: (nomorAsli: number) => void;
   /** Tampilkan tanda air nama peserta (mati bawaannya). */
   tandaAir: boolean;
   /** Melaporkan kejadian (keluar halaman, salin, dst) untuk dicatat; hanya mencatat. */
@@ -332,6 +329,22 @@ export default function TampilanCbt({
     };
   }, []);
 
+  // Denyut posisi: segera saat berpindah soal, lalu tiap 20 detik selama masih
+  // di soal yang sama. Memakai nomor asli soal (order_index), bukan urutan acak.
+  const posisiRef = useRef(onPosisi);
+  useEffect(() => {
+    posisiRef.current = onPosisi;
+  });
+  const nomorAsliSekarang = questions[nomor]?.order_index;
+  useEffect(() => {
+    if (nomorAsliSekarang === undefined) return;
+    posisiRef.current(nomorAsliSekarang);
+    const id = setInterval(() => {
+      if (!sudahKirim.current) posisiRef.current(nomorAsliSekarang);
+    }, 20000);
+    return () => clearInterval(id);
+  }, [nomorAsliSekarang]);
+
   /** Peserta menekan "Kembali ke ujian": durasi perginya dicatat, lalu layar peringatan ditutup. */
   function kembaliKeUjian() {
     if (jauhSejak.current !== null) {
@@ -481,7 +494,7 @@ export default function TampilanCbt({
             question={soal}
             label=""
             value={responses[soal.id]}
-            onChange={(v) => onAnswer(soal.id, v, nomor)}
+            onChange={(v) => onAnswer(soal.id, v, soal.order_index)}
             kolom={{ gaya: gayaIsi, kelas: kelasGambar }}
           />
         </div>
