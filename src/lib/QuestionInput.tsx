@@ -12,7 +12,8 @@ import type {
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { MathText } from "@/lib/latex";
-import IsiSoal, { pisahKonteks } from "@/lib/isi-soal";
+import IsiSoal from "@/lib/isi-soal";
+import { pisahKonteks } from "@/lib/isi-soal-teks";
 
 /**
  * Renders the answer widget for any question type. Shared by the quiz page and

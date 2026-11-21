@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Answer, Attempt, Question } from "@/lib/types";
 import { MathText } from "@/lib/latex";
-import { ringkasIsiSoal } from "@/lib/isi-soal";
+import { ringkasIsiSoal } from "@/lib/isi-soal-teks";
 import { jawabanRingkas } from "@/lib/answer-format";
 import { terjawab } from "@/lib/terjawab";
 import { LABEL_KEJADIAN, type JenisKejadian } from "@/lib/kejadian";

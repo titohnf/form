@@ -1,5 +1,5 @@
 import type { Question, StatementGridOptions } from "@/lib/types";
-import { ringkasIsiSoal } from "@/lib/isi-soal";
+import { ringkasIsiSoal } from "@/lib/isi-soal-teks";
 
 /**
  * Renders a stored response as text for the tutor-facing screens (hasil, live

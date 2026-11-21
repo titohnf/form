@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import type { QuestionBankItem } from "@/lib/types";
 import { MathText } from "@/lib/latex";
-import { ringkasIsiSoal } from "@/lib/isi-soal";
+import { ringkasIsiSoal } from "@/lib/isi-soal-teks";
 import { SearchInput } from "@/lib/SearchFilter";
 
 export interface BankTopicGroup {

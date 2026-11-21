@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Blok, Rata } from "@/lib/isi-soal";
-import IsiSoal, { parseIsiSoal, rataBlok, serialisasiIsiSoal } from "@/lib/isi-soal";
+import type { Blok, Rata } from "@/lib/isi-soal-teks";
+import IsiSoal from "@/lib/isi-soal";
+import { parseIsiSoal, rataBlok, serialisasiIsiSoal } from "@/lib/isi-soal-teks";
 import { MathText } from "@/lib/latex";
 import { ModalGambar, ModalRumus, ModalTabel, type IsiTabel } from "./ModalIsi";
 

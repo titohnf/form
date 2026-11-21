@@ -5,7 +5,7 @@ import type { Answer, Attempt, Question, Quiz } from "@/lib/types";
 import { rankAttempts, computeBadges } from "@/lib/gamification";
 import { perQuestionAccuracy } from "@/lib/question-stats";
 import { MathText } from "@/lib/latex";
-import { ringkasIsiSoal } from "@/lib/isi-soal";
+import { ringkasIsiSoal } from "@/lib/isi-soal-teks";
 import RemedialBuilder from "./RemedialBuilder";
 import PohonKompetensi from "./PohonKompetensi";
 import {
