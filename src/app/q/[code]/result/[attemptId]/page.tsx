@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Attempt, QuizSettings } from "@/lib/types";
@@ -24,16 +23,14 @@ export default async function AttemptResultPage({
   const { data: bobot } = await supabase.rpc("bobot_paket", { p_quiz_id: attempt.quiz_id });
   const totalWeight = Number(bobot ?? 0);
 
-  // "Beranda" ada di Tera, satu alamat dengan Sora: peserta berkode ke /umum
-  // (cookie kode dibagi), akun login ke / (Tera memilah menurut perannya).
-  const punyaKode = Boolean((await cookies()).get("kode_peserta")?.value);
-  const beranda = punyaKode ? "/umum" : "/";
-  // Hasilnya dibaca di Tera (satu alamat): akun login ke /mandiri, peserta berkode ke /umum.
-  // Tanpa memasukkan kode atau login lagi karena sesinya sudah dibagi.
+  // Beranda try out ada di Tera (satu alamat dengan Sora): akun login ke /mandiri/tryout,
+  // peserta berkode ke /umum/tryout (sesi kodenya disimpan saat mulai). Tanpa memasukkan
+  // kode atau login lagi karena sesinya dibagi.
   const {
     data: { user: penggunaLogin },
   } = await supabase.auth.getUser();
-  const hasilHref = penggunaLogin ? `/mandiri/tryout/${attempt.quiz_id}` : `/umum/tryout/${attempt.quiz_id}`;
+  const berandaTryOut = penggunaLogin ? "/mandiri/tryout" : "/umum/tryout";
+  const hasilHref = `${berandaTryOut}/${attempt.quiz_id}`;
 
   const typedAttempt = attempt;
   const settings = hasil.settings ?? {};
@@ -111,8 +108,8 @@ export default async function AttemptResultPage({
 
       {/* Anchor biasa, bukan Link: tujuannya di luar basePath Sora (/tryout). */}
       <div className="mt-6 text-center">
-        <a href={beranda} className="inline-block rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-          Kembali ke Beranda
+        <a href={berandaTryOut} className="inline-block rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+          Kembali ke Beranda Try Out
         </a>
       </div>
     </div>

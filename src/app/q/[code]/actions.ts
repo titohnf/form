@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { JENIS_KEJADIAN } from "@/lib/kejadian";
@@ -92,6 +93,19 @@ export async function mulaiDenganKode(shareCode: string, kode: string): Promise<
   const { data, error } = await supabase.rpc("mulai_percobaan_peserta", { p_share_code: shareCode, p_kode: kode });
   if (error || !data) return { error: pesanMasuk(error?.message ?? "") };
   const h = data as HasilMulai;
+  // Kode sudah terbukti benar: simpan juga sebagai sesi kode Tera (cookie yang sama
+  // dengan /masuk-kode di Tera, satu alamat), supaya tombol "Kembali ke Beranda Try Out"
+  // dan halaman hasil terbuka tanpa memasukkan kode lagi bagi yang masuk lewat tautan WhatsApp.
+  const bersih = kode.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (bersih) {
+    (await cookies()).set("kode_peserta", bersih, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
   return { attemptId: h.attempt_id, startedAt: h.started_at, serverNow: h.server_now };
 }
 
