@@ -64,7 +64,7 @@ export default function QuizForm({
   judul: string;
   /** Kode bagikan paket ini, dan daftar paket try out TKA yang bisa dipilih di halaman masuk. */
   kode: string;
-  paket: { kode: string; judul: string }[];
+  paket: { kode: string; judul: string; jenjang?: string; mapel?: string }[];
   /**
    * Nama murid yang sedang login, kalau kode ini sebuah penugasan asesmen.
    * Identitasnya sudah pasti dari sesi login, jadi langkah isi nama / pilih

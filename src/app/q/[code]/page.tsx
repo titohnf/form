@@ -174,17 +174,19 @@ export default async function PublicQuizPage({
   // Daftar paket try out TKA yang bisa dipilih di halaman masuk. Hanya paket
   // bertampilan TKA yang sudah terbit; paket lain (asesmen kelas, remedial)
   // tidak ikut terdaftar supaya kodenya tidak tersebar lewat daftar ini.
-  let paketTkA: { kode: string; judul: string }[] = [];
+  let paketTkA: { kode: string; judul: string; jenjang?: string; mapel?: string }[] = [];
   if (!entry && settings.cbt_mode) {
     const { data: daftar } = await supabase
       .from("quizzes")
       .select("title, share_code, settings")
       .eq("status", "published")
       .eq("kind", "tryout");
-    paketTkA = ((daftar ?? []) as { title: string; share_code: string | null; settings: Partial<QuizSettings> | null }[])
+    const urutJenjang = (j?: string) => ["SD", "SMP", "SMA"].indexOf((j ?? "").toUpperCase());
+    paketTkA = ((daftar ?? []) as { title: string; share_code: string | null; settings: (Partial<QuizSettings> & { jenjang?: string; mapel?: string }) | null }[])
       .filter((q) => q.settings?.cbt_mode && q.share_code)
-      .map((q) => ({ kode: q.share_code as string, judul: q.title }))
-      .sort((a, b) => a.judul.localeCompare(b.judul, "id"));
+      .map((q) => ({ kode: q.share_code as string, judul: q.title, jenjang: q.settings?.jenjang, mapel: q.settings?.mapel }))
+      // Per jenjang (SD, SMP, ...), lalu menurut judul: Matematika dan Bahasa Indonesia berdampingan.
+      .sort((a, b) => (urutJenjang(a.jenjang) + 1 || 99) - (urutJenjang(b.jenjang) + 1 || 99) || a.judul.localeCompare(b.judul, "id"));
   }
 
   return (
@@ -196,7 +198,11 @@ export default async function PublicQuizPage({
 
       {notYetOpen ? (
         <p className="mt-6 rounded bg-yellow-50 p-4 text-sm text-yellow-700">
-          Paket soal ini belum dibuka. Coba lagi nanti.
+          Paket soal ini belum dibuka
+          {settings.opens_at
+            ? `: dibuka pukul ${new Date(settings.opens_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} WIB.`
+            : "."}{" "}
+          Muat ulang halaman ini pada jamnya.
         </p>
       ) : alreadyClosed ? (
         <p className="mt-6 rounded bg-yellow-50 p-4 text-sm text-yellow-700">

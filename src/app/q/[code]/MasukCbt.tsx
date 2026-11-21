@@ -39,7 +39,7 @@ export default function MasukCbt({
   /** Kode bagikan paket yang sedang dibuka. */
   kode: string;
   /** Paket try out TKA yang bisa dipilih; mengganti pilihan membuka paket itu. */
-  paket: { kode: string; judul: string }[];
+  paket: { kode: string; judul: string; jenjang?: string; mapel?: string }[];
   jumlahSoal: number;
   menit: number | null;
   /** Nama murid yang sudah login (penugasan asesmen); mengabaikan isian nama. */
@@ -298,11 +298,22 @@ export default function MasukCbt({
                     }}
                     className="mt-1.5 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-blue-600"
                   >
-                    {daftarPaket.map((p) => (
-                      <option key={p.kode} value={p.kode}>
-                        {p.judul}
-                      </option>
-                    ))}
+                    {[...new Set(daftarPaket.map((p) => p.jenjang ?? ""))].map((j) => {
+                      const isi = daftarPaket.filter((p) => (p.jenjang ?? "") === j);
+                      const opsi = isi.map((p) => (
+                        <option key={p.kode} value={p.kode}>
+                          {p.judul}
+                        </option>
+                      ));
+                      // Dikelompokkan per jenjang supaya tidak salah memilih paket jenjang lain.
+                      return j ? (
+                        <optgroup key={j} label={`Try Out ${j}`}>
+                          {opsi}
+                        </optgroup>
+                      ) : (
+                        opsi
+                      );
+                    })}
                   </select>
                 </div>
 
