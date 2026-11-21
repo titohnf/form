@@ -7,6 +7,14 @@ import IsiSoal from "@/lib/isi-soal";
 import { jawabanRingkas } from "@/lib/answer-format";
 import { gradeEssayAnswer } from "./actions";
 import { LABEL_KEJADIAN, type JenisKejadian } from "@/lib/kejadian";
+import PohonKompetensi from "../PohonKompetensi";
+import {
+  skorJawaban,
+  sisipkanPembanding,
+  susunPohon,
+  type PetaKompetensi,
+  type SoalAnalisis,
+} from "@/lib/analisis-kompetensi";
 
 interface AnswerRow {
   id: string;
@@ -46,6 +54,32 @@ export default async function AttemptDetailPage({
   const kejadian = (kejadianMentah ?? []) as { id: string; kind: JenisKejadian; durasi_ms: number | null; created_at: string }[];
   const jumlahKeluar = kejadian.filter((k) => k.kind === "hilang_fokus").length;
 
+  // Capaian per kompetensi untuk peserta ini, dibandingkan dengan rata-rata kelas (migrasi Tera 224).
+  const { data: soalKuis } = await supabase.from("questions").select("*").eq("quiz_id", id).order("order_index");
+  const soalAnalisis: SoalAnalisis[] = ((soalKuis ?? []) as (Question & { kompetensi?: PetaKompetensi | null })[]).map((q) => ({
+    id: q.id,
+    nomor: q.order_index + 1,
+    bobot: Number(q.weight),
+    kompetensi: q.kompetensi ?? null,
+  }));
+  const adaPeta = soalAnalisis.some((s) => s.kompetensi);
+  let pohonPeserta = null as ReturnType<typeof sisipkanPembanding> | null;
+  if (adaPeta && attempt.submitted_at) {
+    const { data: percobaanKuis } = await supabase.from("attempts").select("id").eq("quiz_id", id).not("submitted_at", "is", null);
+    const idKelas = ((percobaanKuis ?? []) as { id: string }[]).map((p) => p.id);
+    const { data: skorKuis } = await supabase
+      .from("answers")
+      .select("attempt_id, question_id, auto_score, manual_score")
+      .eq("quiz_id", id)
+      .in("attempt_id", idKelas);
+    const skor = ((skorKuis ?? []) as { attempt_id: string; question_id: string; auto_score: number | null; manual_score: number | null }[]).map((a) => ({
+      attemptId: a.attempt_id,
+      questionId: a.question_id,
+      skor: skorJawaban(a.auto_score, a.manual_score),
+    }));
+    pohonPeserta = sisipkanPembanding(susunPohon(soalAnalisis, skor, [attemptId]), susunPohon(soalAnalisis, skor, idKelas));
+  }
+
   const typedAttempt = attempt as Attempt;
   const typedAnswers = (answers ?? []) as unknown as AnswerRow[];
 
@@ -59,6 +93,16 @@ export default async function AttemptDetailPage({
       <p className="text-sm text-gray-500">
         Skor total: {typedAttempt.total_score === null ? "Menunggu penilaian" : typedAttempt.total_score}
       </p>
+
+      {pohonPeserta && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-medium text-gray-500">Capaian per kompetensi</h2>
+          <p className="mt-1 text-sm text-gray-500">Bilah biru = capaian peserta ini, garis hitam = nasional, dan rata-rata kelas ditulis di bawah tiap baris.</p>
+          <div className="mt-3">
+            <PohonKompetensi pohon={pohonPeserta} labelPembanding="Rata-rata kelas" />
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-medium text-gray-500">Catatan selama ujian</h2>

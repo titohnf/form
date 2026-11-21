@@ -7,6 +7,15 @@ import { perQuestionAccuracy } from "@/lib/question-stats";
 import { MathText } from "@/lib/latex";
 import { ringkasIsiSoal } from "@/lib/isi-soal";
 import RemedialBuilder from "./RemedialBuilder";
+import PohonKompetensi from "./PohonKompetensi";
+import {
+  indikatorTerlemah,
+  jumlahTanpaPeta,
+  skorJawaban,
+  susunPohon,
+  type PetaKompetensi,
+  type SoalAnalisis,
+} from "@/lib/analisis-kompetensi";
 
 export default async function QuizResultsPage({
   params,
@@ -57,6 +66,27 @@ export default async function QuizResultsPage({
 
   const ranked = rankAttempts(typedAttempts);
 
+  // Analisis menurut kompetensi (migrasi Tera 224). Soal yang belum dipetakan
+  // tidak ikut pohonnya. Hanya percobaan yang sudah dikirim yang dihitung.
+  const soalAnalisis: SoalAnalisis[] = typedQuestions.map((q) => ({
+    id: q.id,
+    nomor: q.order_index + 1,
+    bobot: Number(q.weight),
+    kompetensi: (q as Question & { kompetensi?: PetaKompetensi | null }).kompetensi ?? null,
+  }));
+  const idDikirim = typedAttempts.filter((a) => a.submitted_at).map((a) => a.id);
+  const dikirimSet = new Set(idDikirim);
+  const pohonKompetensi = susunPohon(
+    soalAnalisis,
+    typedAnswers
+      .filter((a) => dikirimSet.has(a.attempt_id))
+      .map((a) => ({ attemptId: a.attempt_id, questionId: a.question_id, skor: skorJawaban(a.auto_score, a.manual_score) })),
+    idDikirim,
+  );
+  const indikatorLemah = indikatorTerlemah(pohonKompetensi, 5);
+  const tanpaPeta = jumlahTanpaPeta(soalAnalisis);
+  const adaPeta = soalAnalisis.some((s) => s.kompetensi);
+
   return (
     <div className="space-y-5">
       <Link href={`/dashboard/quizzes/${id}/edit`} className="text-sm text-gray-500 underline">
@@ -89,6 +119,45 @@ export default async function QuizResultsPage({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {adaPeta && idDikirim.length > 0 && (
+        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+          <div>
+            <h2 className="text-sm font-medium text-gray-500">Analisis Kompetensi</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Capaian {idDikirim.length} peserta per elemen, sub-elemen, kompetensi, dan indikator, seperti halaman daya
+              serap Pusmendik. Bilah biru = capaian peserta kita, garis hitam = capaian nasional. Ketuk satu baris untuk
+              membuka tingkat di bawahnya.
+              {tanpaPeta > 0 && ` ${tanpaPeta} soal belum dipetakan dan tidak ikut dihitung.`}
+            </p>
+          </div>
+          {indikatorLemah.length > 0 && (
+            <div className="rounded-xl bg-slate-50 p-4">
+              <p className="text-sm font-medium text-gray-800">Indikator terlemah — rujukan soal try out berikutnya</p>
+              <ol className="mt-2 flex flex-col gap-1.5">
+                {indikatorLemah.map((t, i) => (
+                  <li key={t.kunci} className="flex items-start justify-between gap-3 text-sm">
+                    <span className="min-w-0 text-gray-700">
+                      <span className="mr-2 text-gray-400">{i + 1}.</span>
+                      {t.nama}
+                      <span className="ml-2 text-xs text-gray-400">soal no. {t.nomorSoal.join(", ")}</span>
+                    </span>
+                    <span className="shrink-0 tabular-nums">
+                      <b>{t.persen === null ? "—" : `${t.persen.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`}</b>
+                      {t.nasional !== null && (
+                        <span className="ml-2 text-xs text-gray-500">
+                          nasional {t.nasional.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          <PohonKompetensi pohon={pohonKompetensi} />
         </div>
       )}
 
