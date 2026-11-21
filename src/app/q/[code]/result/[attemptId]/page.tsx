@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Attempt, QuizSettings } from "@/lib/types";
@@ -23,14 +24,24 @@ export default async function AttemptResultPage({
   const { data: bobot } = await supabase.rpc("bobot_paket", { p_quiz_id: attempt.quiz_id });
   const totalWeight = Number(bobot ?? 0);
 
-  // Beranda try out ada di Tera (satu alamat dengan Sora): akun login ke /mandiri/tryout,
-  // peserta berkode ke /umum/tryout (sesi kodenya disimpan saat mulai). Tanpa memasukkan
-  // kode atau login lagi karena sesinya dibagi.
+  // Beranda try out ada di Tera (satu alamat dengan Sora). Tujuannya menurut siapa pesertanya:
+  //  - akun mandiri       -> /mandiri/tryout
+  //  - murid bimbel (akun `student`) tidak punya beranda di Tera: hasilnya dilihat orang tua
+  //    di akun keluarga, jadi tidak ada tombol
+  //  - selain itu (peserta berkode, atau admin/tutor yang sedang mencoba) -> /umum/tryout
+  //    bila sesi kodenya ada (disimpan saat mulai), kalau tidak ke beranda Tera.
   const {
     data: { user: penggunaLogin },
   } = await supabase.auth.getUser();
-  const berandaTryOut = penggunaLogin ? "/mandiri/tryout" : "/umum/tryout";
-  const hasilHref = `${berandaTryOut}/${attempt.quiz_id}`;
+  let peran: string | null = null;
+  if (penggunaLogin) {
+    const { data: profil } = await supabase.from("profiles").select("role").eq("id", penggunaLogin.id).maybeSingle();
+    peran = (profil?.role as string | undefined) ?? null;
+  }
+  const punyaKode = Boolean((await cookies()).get("kode_peserta")?.value);
+  const muridBimbel = peran === "student";
+  const berandaTryOut = peran === "mandiri" ? "/mandiri/tryout" : punyaKode ? "/umum/tryout" : "/";
+  const hasilHref = berandaTryOut === "/" ? null : `${berandaTryOut}/${attempt.quiz_id}`;
 
   const typedAttempt = attempt;
   const settings = hasil.settings ?? {};
@@ -67,7 +78,12 @@ export default async function AttemptResultPage({
             <p className="text-lg font-medium text-gray-600">
               Skor akan diumumkan oleh tutor.
             </p>
-            {settings.cbt_mode && (
+            {settings.cbt_mode && muridBimbel && (
+              <p className="mt-3 text-sm text-gray-500">
+                Hasilnya bisa dilihat orang tuamu di akun keluarga setelah hasilnya dibuka.
+              </p>
+            )}
+            {settings.cbt_mode && !muridBimbel && hasilHref && (
               <p className="mt-3 text-sm text-gray-500">
                 Kamu bisa melihat hasilnya lewat{" "}
                 <a href={hasilHref} className="font-medium text-[#1b4f94] underline">
@@ -107,11 +123,13 @@ export default async function AttemptResultPage({
       </div>
 
       {/* Anchor biasa, bukan Link: tujuannya di luar basePath Sora (/tryout). */}
-      <div className="mt-6 text-center">
-        <a href={berandaTryOut} className="inline-block rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-          Kembali ke Beranda Try Out
-        </a>
-      </div>
+      {!muridBimbel && (
+        <div className="mt-6 text-center">
+          <a href={berandaTryOut} className="inline-block rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            Kembali ke Beranda Try Out
+          </a>
+        </div>
+      )}
     </div>
   );
 }
