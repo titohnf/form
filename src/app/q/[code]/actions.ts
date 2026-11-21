@@ -71,6 +71,35 @@ export async function startAttempt(
   return { attemptId: attempt.id, startedAt: attempt.started_at, serverNow: new Date().toISOString() };
 }
 
+/**
+ * Apakah percobaan yang tersimpan di perangkat masih layak dilanjutkan?
+ *
+ * Pemulihan setelah muat ulang (QuizForm) dulu langsung membuka soal dari
+ * isi penyimpanan perangkat, tanpa bertanya ke server. Sisa percobaan yang
+ * sudah dihapus, sudah dikirim, atau sudah lewat batas waktu membuat peserta
+ * langsung terlempar ke soal nomor 1 dan melewati halaman persiapan.
+ * Sekarang pemulihan hanya jalan bila percobaannya masih ada, belum dikirim,
+ * milik paket ini, dan waktunya belum habis.
+ */
+export async function percobaanMasihBerjalan(shareCode: string, attemptId: string): Promise<boolean> {
+  if (!attemptId) return false;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("attempts")
+    .select("id, submitted_at, started_at, quizzes(share_code, status, settings)")
+    .eq("id", attemptId)
+    .maybeSingle();
+  if (!data || data.submitted_at) return false;
+  const kuis = data.quizzes as unknown as { share_code: string | null; status: string; settings: Partial<QuizSettings> | null } | null;
+  if (!kuis || kuis.share_code !== shareCode || kuis.status !== "published") return false;
+  const menit = kuis.settings?.cbt_mode ? kuis.settings?.time_limit_minutes : null;
+  if (menit) {
+    const batas = new Date(data.started_at).getTime() + (menit * 60 + TOLERANSI_DETIK) * 1000;
+    if (Date.now() > batas) return false;
+  }
+  return true;
+}
+
 /** Pesan untuk peserta dari kode galat fungsi database (migrasi Tera 227). */
 function pesanMasuk(pesan: string): string {
   if (pesan.includes("kode_tidak_dikenal")) return "Kode tidak dikenal. Periksa lagi kodenya, atau tanya tutor.";

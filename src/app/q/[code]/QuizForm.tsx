@@ -6,7 +6,7 @@ import { BRANCH_END } from "@/lib/types";
 import QuestionInput from "@/lib/QuestionInput";
 import TampilanCbt, { type KondisiCbt } from "./TampilanCbt";
 import MasukCbt from "./MasukCbt";
-import { startAttempt, startAssessmentAttempt, mulaiDenganKode, mulaiDenganAkun, cekKodePeserta, saveAnswer, finalizeAttempt, catatKejadian, catatPosisi } from "./actions";
+import { percobaanMasihBerjalan, startAttempt, startAssessmentAttempt, mulaiDenganKode, mulaiDenganAkun, cekKodePeserta, saveAnswer, finalizeAttempt, catatKejadian, catatPosisi } from "./actions";
 import { susunUntukPeserta } from "@/lib/acak";
 
 interface Student {
@@ -110,18 +110,29 @@ export default function QuizForm({
         kondisi: KondisiCbt;
         nama?: string;
       };
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- memulihkan dari penyimpanan perangkat, hanya bisa setelah mount
-      setAttemptId(d.attemptId);
-      setMulaiMs(d.mulaiMs);
-      setSkew(d.skew);
-      setResponses(d.responses ?? {});
-      setKondisi(d.kondisi ?? { nomor: 0, ragu: [] });
-      if (d.nama) setGuestName(d.nama);
-      setStep("quiz");
+      // Tanya server dulu: sisa percobaan yang sudah dihapus, terkirim, atau
+      // kehabisan waktu dibuang, dan peserta mulai dari halaman persiapan.
+      void percobaanMasihBerjalan(shareCode, d.attemptId).then((layak) => {
+        if (!layak) {
+          try {
+            localStorage.removeItem(kunciSimpan);
+          } catch {
+            /* tidak ada yang bisa dibersihkan */
+          }
+          return;
+        }
+        setAttemptId(d.attemptId);
+        setMulaiMs(d.mulaiMs);
+        setSkew(d.skew);
+        setResponses(d.responses ?? {});
+        setKondisi(d.kondisi ?? { nomor: 0, ragu: [] });
+        if (d.nama) setGuestName(d.nama);
+        setStep("quiz");
+      });
     } catch {
       /* penyimpanan tidak tersedia atau rusak: mulai dari awal */
     }
-  }, [cbt, kunciSimpan]);
+  }, [cbt, kunciSimpan, shareCode]);
 
   function simpanCbt(patch: Record<string, unknown>) {
     try {
