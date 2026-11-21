@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -29,6 +28,12 @@ export default async function AttemptResultPage({
   // (cookie kode dibagi), akun login ke / (Tera memilah menurut perannya).
   const punyaKode = Boolean((await cookies()).get("kode_peserta")?.value);
   const beranda = punyaKode ? "/umum" : "/";
+  // Hasilnya dibaca di Tera (satu alamat): akun login ke /mandiri, peserta berkode ke /umum.
+  // Tanpa memasukkan kode atau login lagi karena sesinya sudah dibagi.
+  const {
+    data: { user: penggunaLogin },
+  } = await supabase.auth.getUser();
+  const hasilHref = penggunaLogin ? `/mandiri/tryout/${attempt.quiz_id}` : `/umum/tryout/${attempt.quiz_id}`;
 
   const typedAttempt = attempt;
   const settings = hasil.settings ?? {};
@@ -67,11 +72,11 @@ export default async function AttemptResultPage({
             </p>
             {settings.cbt_mode && (
               <p className="mt-3 text-sm text-gray-500">
-                Hasil lengkapmu bisa dilihat di{" "}
-                <Link href="/hasil" className="font-medium text-[#1b4f94] underline">
-                  halaman Hasil
-                </Link>{" "}
-                dengan kode pesertamu, setelah hasilnya dibuka.
+                Kamu bisa melihat hasilnya lewat{" "}
+                <a href={hasilHref} className="font-medium text-[#1b4f94] underline">
+                  halaman Try Out
+                </a>{" "}
+                setelah hasilnya dibuka, tanpa perlu memasukkan kode lagi.
               </p>
             )}
           </>
