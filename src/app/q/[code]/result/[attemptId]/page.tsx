@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Attempt, QuizSettings } from "@/lib/types";
@@ -51,9 +52,20 @@ export default async function AttemptResultPage({
 
       <div className="mt-6 rounded border border-gray-200 p-6 text-center">
         {!showScore ? (
-          <p className="text-lg font-medium text-gray-600">
-            Skor akan diumumkan oleh tutor.
-          </p>
+          <>
+            <p className="text-lg font-medium text-gray-600">
+              Skor akan diumumkan oleh tutor.
+            </p>
+            {settings.cbt_mode && (
+              <p className="mt-3 text-sm text-gray-500">
+                Hasil lengkapmu bisa dilihat di{" "}
+                <Link href="/hasil" className="font-medium text-[#1b4f94] underline">
+                  halaman Hasil
+                </Link>{" "}
+                dengan kode pesertamu, setelah hasilnya dibuka.
+              </p>
+            )}
+          </>
         ) : hasPendingGrading ? (
           <p className="text-lg font-medium text-yellow-700">
             Sebagian soal (esai) menunggu penilaian tutor.
