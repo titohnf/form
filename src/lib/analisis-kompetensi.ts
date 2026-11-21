@@ -103,12 +103,16 @@ export function susunPohon(soal: SoalAnalisis[], skor: SkorAnalisis[], attemptId
   for (const s of soal) {
     const k = s.kompetensi
     if (!k) continue
-    const jalur: [string, string, TingkatKompetensi, number | null][] = [
+    const jalurPenuh: [string, string, TingkatKompetensi, number | null][] = [
       [k.elemen.nama, k.elemen.nama, 'elemen', k.elemen.nasional],
       [k.subelemen.nama, k.subelemen.nama, 'subelemen', k.subelemen.nasional],
       [k.kompetensi.nama, k.kompetensi.nama, 'kompetensi', k.kompetensi.nasional],
       [`${k.indikator.nomor ?? s.nomor}`, k.indikator.nama, 'indikator', k.indikator.nasional],
     ]
+    // Bahasa Indonesia hanya punya tiga tingkat (elemen > kelompok > indikator): petanya mengisi
+    // sub-elemen dengan nama elemen yang sama. Tingkat yang namanya sama dengan induknya dilewati,
+    // supaya tidak tampil dua simpul kembar. Mata pelajaran empat tingkat (Matematika) tidak terpengaruh.
+    const jalur = jalurPenuh.filter(([, nama, tingkat], i) => !(tingkat === 'subelemen' && nama === jalurPenuh[i - 1][1]))
     let tingkatSekarang = akar
     let prefiks = ''
     for (const [kunciLokal, nama, tingkat, nasional] of jalur) {
