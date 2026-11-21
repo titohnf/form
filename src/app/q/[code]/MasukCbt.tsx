@@ -62,7 +62,7 @@ export default function MasukCbt({
   const router = useRouter();
   // Paket yang sedang dibuka selalu ada di daftar, walau belum tercatat di sana.
   const daftarPaket = paket.some((p) => p.kode === kode) ? paket : [{ kode, judul }, ...paket];
-  const [tahap, setTahap] = useState<"masuk" | "konfirmasi">(namaAsesmen ? "konfirmasi" : "masuk");
+  const [tahap, setTahap] = useState<"masuk" | "konfirmasi">(namaAsesmen || namaIdentitas ? "konfirmasi" : "masuk");
   const [galatLokal, setGalatLokal] = useState<string | null>(null);
   const [memulai, setMemulai] = useState(false);
 

@@ -45,6 +45,7 @@ export default function QuizForm({
   paket,
   assessment,
   akun,
+  identitasAwal,
 }: {
   quizId: string;
   shareCode: string;
@@ -72,12 +73,14 @@ export default function QuizForm({
   assessment: { studentName: string } | null;
   /** Nama siswa Tera yang sedang login (try out TKA), atau null. */
   akun: string | null;
+  /** Peserta yang dibawa dari Tera dengan `?kode=`: identitas sudah pasti, layar masuk dilewati. */
+  identitasAwal: { tipe: "kode"; kode: string; nama: string } | null;
 }) {
   const [step, setStep] = useState<"name" | "quiz" | "submitting">("name");
   const [guestName, setGuestName] = useState("");
   const [studentId, setStudentId] = useState("");
   // Identitas peserta try out TKA: kode peserta (murid luar) atau akun Tera.
-  const [identitas, setIdentitas] = useState<{ tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null>(null);
+  const [identitas, setIdentitas] = useState<{ tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null>(identitasAwal);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +100,12 @@ export default function QuizForm({
   // memori), murid melanjutkan percobaan yang sama dengan waktu yang tetap
   // berjalan, bukan memulai ulang dengan waktu penuh.
   const kunciSimpan = `cbt:${shareCode}`;
+
+  // Kode tidak perlu tertinggal di alamat (riwayat, tangkapan layar).
+  useEffect(() => {
+    if (identitasAwal && window.location.search) window.history.replaceState(null, "", window.location.pathname);
+  }, [identitasAwal]);
+
   useEffect(() => {
     if (!cbt) return;
     try {
