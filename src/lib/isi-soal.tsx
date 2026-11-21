@@ -71,6 +71,28 @@ function sel(baris: string): string[] {
   return isi.split("|").map((s) => s.trim());
 }
 
+/**
+ * Penanda batas antara konteks dan pertanyaan: satu baris `[pertanyaan]`.
+ * Tampilan pengerjaan ala TKA memecah soal di situ menjadi dua kolom (konteks
+ * di kiri, pertanyaan dan pilihan di kanan). Tampilan lain tidak
+ * memperlihatkannya sama sekali — `bersihkanPenanda` membuangnya sebelum soal
+ * dirender, jadi soal yang sama tetap utuh di mana pun ia muncul.
+ */
+const PENANDA_RE = /^[ \t]*\[pertanyaan\][ \t]*$/im;
+const PENANDA_BARIS_RE = /^[ \t]*\[pertanyaan\][ \t]*\r?\n?/gim;
+
+/** Memecah soal di penanda `[pertanyaan]`. Tanpa penanda, tidak ada konteks. */
+export function pisahKonteks(teks: string): { konteks: string | null; pertanyaan: string } {
+  const m = PENANDA_RE.exec(teks);
+  if (!m) return { konteks: null, pertanyaan: teks };
+  const konteks = teks.slice(0, m.index).trim();
+  const pertanyaan = teks.slice(m.index + m[0].length).trim();
+  return { konteks: konteks || null, pertanyaan };
+}
+
+/** Membuang baris penanda `[pertanyaan]`, untuk tampilan yang tidak memecah soal. */
+export const bersihkanPenanda = (teks: string): string => teks.replace(PENANDA_BARIS_RE, "");
+
 export function parseIsiSoal(teks: string): Blok[] {
   const blok: Blok[] = [];
   const baris = teks.split("\n");
@@ -198,7 +220,7 @@ export function serialisasiIsiSoal(blok: Blok[]): string {
  * keluar layar.
  */
 export function ringkasIsiSoal(teks: string): string {
-  return parseIsiSoal(teks)
+  return parseIsiSoal(bersihkanPenanda(teks))
     .map((b) =>
       b.jenis === "teks"
         ? b.teks
@@ -309,7 +331,7 @@ function Tabel({
 /** Isi soal, dirender utuh: paragraf, rumus, gambar, dan tabel pada urutan yang ditulis. */
 export default function IsiSoal({ text, className }: { text: string; className?: string }) {
   const [dibuka, setDibuka] = useState<string | null>(null);
-  const blok = parseIsiSoal(text);
+  const blok = parseIsiSoal(bersihkanPenanda(text));
 
   useEffect(() => {
     if (!dibuka) return;

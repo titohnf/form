@@ -5,7 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import { totalScore } from "@/lib/grading";
 import type { Question, QuizSettings } from "@/lib/types";
 
-export type StartAttemptResult = { attemptId: string } | { error: string };
+export type StartAttemptResult =
+  | { attemptId: string; startedAt?: string; serverNow?: string }
+  | { error: string };
+
+/** Toleransi setelah batas waktu habis, untuk jawaban terakhir yang sedang dalam perjalanan. */
+const TOLERANSI_DETIK = 60;
 
 export async function startAttempt(
   shareCode: string,
@@ -48,14 +53,16 @@ export async function startAttempt(
   const { data: attempt, error } = await supabase
     .from("attempts")
     .insert({ quiz_id: quiz.id, guest_name: guestName, learner_id: learnerId })
-    .select("id")
+    .select("id, started_at")
     .single();
 
   if (error || !attempt) {
     return { error: "Gagal memulai paket soal." };
   }
 
-  return { attemptId: attempt.id };
+  // `serverNow` dikirim supaya timer di layar murid tidak ikut jam perangkatnya
+  // yang bisa meleset: yang dipakai selisih jam server dan jam perangkat.
+  return { attemptId: attempt.id, startedAt: attempt.started_at, serverNow: new Date().toISOString() };
 }
 
 export async function saveAnswer(
@@ -66,6 +73,22 @@ export async function saveAnswer(
   questionIndex: number,
 ) {
   const supabase = await createClient();
+
+  // Batas waktu hanya ditegakkan untuk paket bertampilan TKA. Paket lain boleh
+  // punya `time_limit_minutes` yang selama ini tidak pernah dipakai, dan
+  // menegakkannya sekarang akan menolak jawaban murid di paket yang tidak
+  // pernah dirancang dengan batas itu.
+  const { data: percobaan } = await supabase
+    .from("attempts")
+    .select("started_at, quizzes(settings)")
+    .eq("id", attemptId)
+    .maybeSingle();
+  const pengaturan = ((percobaan as unknown as { quizzes: { settings: Partial<QuizSettings> | null } | null } | null)
+    ?.quizzes?.settings ?? {}) as Partial<QuizSettings>;
+  if (percobaan && pengaturan.cbt_mode && pengaturan.time_limit_minutes) {
+    const batas = new Date(percobaan.started_at).getTime() + (pengaturan.time_limit_minutes * 60 + TOLERANSI_DETIK) * 1000;
+    if (Date.now() > batas) return { expired: true as const };
+  }
 
   await supabase
     .from("answers")

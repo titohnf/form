@@ -276,6 +276,10 @@ export default async function EditQuizPage({
             <input type="checkbox" name="sequential_mode" defaultChecked={settings.sequential_mode} />
             Mode satu soal per halaman (wajib untuk percabangan soal)
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="cbt_mode" defaultChecked={settings.cbt_mode} />
+            Tampilan ala TKA (satu soal per layar, timer, daftar soal, ragu-ragu). Isi batas waktu di atas.
+          </label>
           <button
             type="submit"
             className="self-start rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"

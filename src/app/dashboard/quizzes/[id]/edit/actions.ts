@@ -37,6 +37,7 @@ export async function updateQuizSettings(quizId: string, formData: FormData) {
     opens_at: opensAt ? new Date(opensAt).toISOString() : null,
     closes_at: closesAt ? new Date(closesAt).toISOString() : null,
     sequential_mode: formData.get("sequential_mode") === "on",
+    cbt_mode: formData.get("cbt_mode") === "on",
   };
 
   await supabase.from("quizzes").update({ settings }).eq("id", quizId);

@@ -139,6 +139,22 @@ export default async function PublicQuizPage({
     (row) => ({ id: row.learner_id, name: row.learner_name }),
   );
 
+  // Daftar paket try out TKA yang bisa dipilih di halaman masuk. Hanya paket
+  // bertampilan TKA yang sudah terbit; paket lain (asesmen kelas, remedial)
+  // tidak ikut terdaftar supaya kodenya tidak tersebar lewat daftar ini.
+  let paketTkA: { kode: string; judul: string }[] = [];
+  if (!entry && settings.cbt_mode) {
+    const { data: daftar } = await supabase
+      .from("quizzes")
+      .select("title, share_code, settings")
+      .eq("status", "published")
+      .eq("kind", "tryout");
+    paketTkA = ((daftar ?? []) as { title: string; share_code: string | null; settings: Partial<QuizSettings> | null }[])
+      .filter((q) => q.settings?.cbt_mode && q.share_code)
+      .map((q) => ({ kode: q.share_code as string, judul: q.title }))
+      .sort((a, b) => a.judul.localeCompare(b.judul, "id"));
+  }
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
       <h1 className="text-2xl font-semibold">{typedQuiz.title}</h1>
@@ -162,6 +178,11 @@ export default async function PublicQuizPage({
             questions={orderedQuestions}
             students={learners}
             sequential={settings.sequential_mode ?? false}
+            cbt={settings.cbt_mode ?? false}
+            timeLimitMinutes={settings.time_limit_minutes ?? null}
+            judul={typedQuiz.title}
+            kode={code}
+            paket={paketTkA}
             assessment={entry ? { studentName } : null}
           />
         </div>

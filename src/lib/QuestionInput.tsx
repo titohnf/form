@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import type {
   MatchingOptions,
   McqOptions,
@@ -11,7 +12,7 @@ import type {
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { MathText } from "@/lib/latex";
-import IsiSoal from "@/lib/isi-soal";
+import IsiSoal, { pisahKonteks } from "@/lib/isi-soal";
 
 /**
  * Renders the answer widget for any question type. Shared by the quiz page and
@@ -24,27 +25,52 @@ export default function QuestionInput({
   label,
   value,
   onChange,
+  tabel = false,
+  kolom,
 }: {
   question: Question;
   /** Heading for this question, e.g. "Soal 3" or "Soal 3 dari 10". */
   label: string;
   value: unknown;
   onChange: (value: unknown) => void;
+  /**
+   * Soal pernyataan (Benar/Salah, Mungkin/Tidak Mungkin) disajikan sebagai
+   * tabel berkepala dan bergaris, seperti di soal TKA. Bawaannya daftar biasa,
+   * yang dipakai latihan mandiri.
+   */
+  tabel?: boolean;
+  /**
+   * Tampilan dua kolom seperti soal TKA: konteks soal di kolom kiri, pertanyaan
+   * dan pilihan jawaban di kolom kanan, masing-masing bergulir sendiri supaya
+   * konteks tetap terlihat saat murid menggulir pilihannya. Batasnya penanda
+   * `[pertanyaan]` di dalam soal. `gaya` dan `kelas` dipasang di isi tiap kolom
+   * (ukuran font dan batas tinggi gambar milik pemanggil).
+   */
+  kolom?: { gaya: CSSProperties; kelas: string };
 }) {
-  return (
-    <fieldset className="rounded border border-gray-200 p-4">
-      <legend className="px-1 text-sm font-medium">{label}</legend>
+  // Di tampilan dua kolom, pilihan jawaban dan tabel pernyataan memakai ukuran
+  // DAN ketebalan huruf yang sama dengan teks soalnya (`text-sm font-medium`);
+  // sebelumnya soal 500 dan pilihannya 400, jadi pilihan tampak lebih kecil.
+  const teksIsi = kolom ? "text-sm font-medium" : "text-sm";
+  // Pilihan yang seluruhnya gambar diberi huruf A, B, C, D sebagai TEKS di
+  // sebelah gambarnya, seukuran teks soal. Dulu huruf itu digambar di dalam
+  // gambar dan ikut menyusut atau membesar mengikuti gambarnya.
+  const pilihanSoal = (question.options as McqOptions | null)?.choices ?? [];
+  const hurufPilihan = pilihanSoal.length > 0 && pilihanSoal.every((c) => /^\s*\[gambar:/i.test(c));
+  const dua = kolom ? pisahKonteks(question.prompt) : null;
+  const isi = (
+    <>
       {question.type !== "fill_blank" && (
-        <IsiSoal text={question.prompt} className="text-sm font-medium" />
+        <IsiSoal text={dua ? dua.pertanyaan : question.prompt} className="text-sm font-medium" />
       )}
 
       {question.type === "mcq_single" && (
-        <div className="mt-2 flex flex-col gap-2">
-          {(question.options as McqOptions | null)?.choices?.map((choice) => (
+        <div className={`mt-2 ${kelasPilihan(question)}`}>
+          {(question.options as McqOptions | null)?.choices?.map((choice, i) => (
             // `items-start`: pilihan boleh memuat gambar atau tabel, dan
             // lingkaran yang dipusatkan terhadap gambar setinggi 200px akan
             // melayang jauh dari baris pertamanya.
-            <label key={choice} className="flex items-start gap-2 text-sm">
+            <label key={choice} className={`flex items-start gap-2 ${teksIsi}`}>
               <input
                 type="radio"
                 name={`q_${question.id}`}
@@ -52,6 +78,7 @@ export default function QuestionInput({
                 onChange={() => onChange(choice)}
                 className="mt-1"
               />
+              {hurufPilihan && <span className="mt-px shrink-0">{String.fromCharCode(65 + i)}.</span>}
               <IsiSoal text={choice} />
             </label>
           ))}
@@ -59,11 +86,11 @@ export default function QuestionInput({
       )}
 
       {question.type === "mcq_multi" && (
-        <div className="mt-2 flex flex-col gap-2">
-          {(question.options as McqOptions | null)?.choices?.map((choice) => {
+        <div className={`mt-2 ${kelasPilihan(question)}`}>
+          {(question.options as McqOptions | null)?.choices?.map((choice, i) => {
             const selected = Array.isArray(value) ? (value as string[]) : [];
             return (
-              <label key={choice} className="flex items-start gap-2 text-sm">
+              <label key={choice} className={`flex items-start gap-2 ${teksIsi}`}>
                 <input
                   type="checkbox"
                   checked={selected.includes(choice)}
@@ -76,6 +103,7 @@ export default function QuestionInput({
                   }
                   className="mt-1"
                 />
+                {hurufPilihan && <span className="mt-px shrink-0">{String.fromCharCode(65 + i)}.</span>}
                 <IsiSoal text={choice} />
               </label>
             );
@@ -141,10 +169,52 @@ export default function QuestionInput({
       )}
 
       {question.type === "statement_grid" && (
-        <StatementGridInput question={question} value={value} onChange={onChange} />
+        <StatementGridInput question={question} value={value} onChange={onChange} tabel={tabel} teksIsi={teksIsi} />
       )}
+    </>
+  );
+
+  if (kolom && dua) {
+    // Pilihan berupa gambar butuh lebar: kolom kanan dilebarkan bila ada.
+    const gambarPilihan = pilihanSoal.some((c) => /^\s*\[gambar:/i.test(c));
+    return (
+      <div
+        className={`grid h-full min-h-0 grid-cols-1 overflow-y-auto rounded border border-gray-200 md:overflow-hidden ${
+          dua.konteks
+            ? gambarPilihan
+              ? "md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
+              : "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+            : ""
+        }`}
+      >
+        {dua.konteks && (
+          <div className="border-b-2 border-dotted border-gray-300 p-4 md:min-h-0 md:overflow-y-auto md:border-b-0 md:border-r-2">
+            <div style={kolom.gaya} className={kolom.kelas}>
+              <IsiSoal text={dua.konteks} className="text-sm font-medium" />
+            </div>
+          </div>
+        )}
+        <div className="p-4 md:min-h-0 md:overflow-y-auto">
+          <div style={kolom.gaya} className={kolom.kelas}>
+            {isi}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <fieldset className="rounded border border-gray-200 p-4">
+      {label && <legend className="px-1 text-sm font-medium">{label}</legend>}
+      {isi}
     </fieldset>
   );
+}
+
+/** Susunan pilihan: satu kolom, atau dua kolom di layar lebar kalau soalnya meminta. */
+function kelasPilihan(question: Question): string {
+  const kolom = (question.options as McqOptions | null)?.columns ?? 1;
+  return kolom >= 2 ? "grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3" : "flex flex-col gap-2";
 }
 
 /**
@@ -156,10 +226,14 @@ function StatementGridInput({
   question,
   value,
   onChange,
+  tabel,
+  teksIsi,
 }: {
   question: Question;
   value: unknown;
   onChange: (value: unknown) => void;
+  tabel: boolean;
+  teksIsi: string;
 }) {
   const options = question.options as StatementGridOptions | null;
   const statements = options?.statements ?? [];
@@ -171,6 +245,51 @@ function StatementGridInput({
     const next = statements.map((_, j) => answers[j] ?? null);
     next[i] = answer;
     onChange(next);
+  }
+
+  if (tabel) {
+    return (
+      <div className="mt-3 max-w-full overflow-x-auto">
+        <table className={`w-full border-collapse ${teksIsi}`}>
+          <thead>
+            <tr>
+              <th className="border border-gray-400 bg-gray-100 px-3 py-2 text-left font-semibold">
+                <MathText text={judulBaris || "Pernyataan"} />
+              </th>
+              {[trueLabel, falseLabel].map((label) => (
+                <th key={label} className="w-28 border border-gray-400 bg-gray-100 px-2 py-2 text-center font-semibold sm:w-40">
+                  <MathText text={label} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {statements.map((statement, i) => (
+              <tr key={i}>
+                <td className="border border-gray-400 px-3 py-2 align-middle">
+                  <MathText text={statement} />
+                </td>
+                {([true, false] as const).map((answer) => (
+                  <td key={String(answer)} className="border border-gray-400 p-0 text-center">
+                    {/* Seluruh sel bisa ditekan, bukan hanya lingkarannya. */}
+                    <label className="flex h-full min-h-11 cursor-pointer items-center justify-center py-2">
+                      <input
+                        type="radio"
+                        className="h-5 w-5"
+                        name={`q_${question.id}_s_${i}`}
+                        checked={answers[i] === answer}
+                        onChange={() => setAt(i, answer)}
+                        aria-label={`${statement} — ${answer ? trueLabel : falseLabel}`}
+                      />
+                    </label>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   }
 
   return (

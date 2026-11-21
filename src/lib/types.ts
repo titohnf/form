@@ -64,6 +64,8 @@ export const QUIZ_KIND_LABEL: Record<QuizKind, string> = {
 };
 
 export interface McqOptions {
+  /** Jumlah kolom pilihan di layar lebar; bawaannya satu. Dipakai untuk pilihan berupa gambar. */
+  columns?: number;
   choices: string[];
 }
 
@@ -235,6 +237,12 @@ export interface QuizSettings {
   opens_at: string | null;
   closes_at: string | null;
   sequential_mode: boolean;
+  /**
+   * Tampilan ala TKA/ANBK: satu soal per layar, timer, daftar nomor soal, dan
+   * tombol ragu-ragu. Tidak sama dengan `sequential_mode` (yang tanpa
+   * kembali dan dipakai untuk percabangan).
+   */
+  cbt_mode: boolean;
 }
 
 export const defaultQuizSettings: QuizSettings = {
@@ -246,6 +254,7 @@ export const defaultQuizSettings: QuizSettings = {
   opens_at: null,
   closes_at: null,
   sequential_mode: false,
+  cbt_mode: false,
 };
 
 export interface Quiz {

@@ -37,7 +37,9 @@ export default async function AttemptResultPage({
 
   let rank: number | null = null;
   let badges: { emoji: string; label: string }[] = [];
-  if (showScore && !hasPendingGrading) {
+  // Paket bertampilan TKA tidak memakai peringkat maupun lencana: itu ujian,
+  // bukan permainan, dan murid tidak perlu tahu posisinya terhadap peserta lain.
+  if (showScore && !hasPendingGrading && !settings.cbt_mode) {
     const { data: allAttempts } = await supabase
       .from("attempts")
       .select("*")
@@ -67,6 +69,11 @@ export default async function AttemptResultPage({
             <p className="text-4xl font-semibold">
               {typedAttempt.total_score} / {totalWeight}
             </p>
+            {settings.cbt_mode && totalWeight > 0 && (
+              <p className="mt-1 text-sm text-gray-500">
+                Nilai: {Math.round(((typedAttempt.total_score ?? 0) / totalWeight) * 1000) / 10} dari 100
+              </p>
+            )}
             {rank && <p className="mt-1 text-sm text-gray-500">Peringkat #{rank}</p>}
             {badges.length > 0 && (
               <p className="mt-2 text-2xl">
