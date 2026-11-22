@@ -167,6 +167,44 @@ export async function finalizeAttempt(shareCode: string, attemptId: string) {
 }
 
 /**
+ * Kirim percobaan TKA dan KEMBALIKAN alamat hasilnya (tidak redirect di server). Layar ujian
+ * memanggil ini dengan pengulangan: bila koneksi putus di tengah pengiriman, panggilannya
+ * dicoba lagi dan salinan jawaban di perangkat tidak dihapus sebelum server menjawab sukses.
+ * `sudah_dikirim` dianggap sukses (pengiriman sebelumnya sebenarnya sampai).
+ */
+export async function kirimPercobaan(
+  shareCode: string,
+  attemptId: string,
+): Promise<{ url: string } | { galat: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("kirim_percobaan", { p_attempt_id: attemptId });
+  if (error && !error.message.includes("sudah_dikirim")) {
+    if (error.message.includes("percobaan_tidak_ditemukan")) return { galat: "tidak_ditemukan" };
+    return { galat: "gagal" };
+  }
+  return { url: `/q/${shareCode}/result/${attemptId}` };
+}
+
+/**
+ * Jawaban yang sudah tersimpan di server untuk percobaan yang belum dikirim (migrasi Tera 234).
+ * Dipakai saat peserta melanjutkan tanpa salinan di perangkat. Null bila fungsinya belum ada
+ * atau gagal: layar lanjut dengan jawaban kosong seperti sebelumnya.
+ */
+export async function jawabanTersimpan(
+  attemptId: string,
+): Promise<{ responses: Record<string, unknown>; index: number } | null> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("jawaban_tersimpan", { p_attempt: attemptId });
+    if (error || !data) return null;
+    const d = data as { responses?: Record<string, unknown>; index?: number };
+    return { responses: d.responses ?? {}, index: d.index ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Mulai (atau lanjutkan) attempt asesmen untuk murid yang sedang login.
  *
  * Seluruh pemeriksaan ada di `start_assessment_attempt` (migrasi 075): kode

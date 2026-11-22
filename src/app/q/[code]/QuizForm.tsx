@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Branching, Question } from "@/lib/types";
 import { BRANCH_END } from "@/lib/types";
 import QuestionInput from "@/lib/QuestionInput";
 import TampilanCbt, { type KondisiCbt } from "./TampilanCbt";
 import MasukCbt from "./MasukCbt";
-import { percobaanMasihBerjalan, startAttempt, startAssessmentAttempt, mulaiDenganKode, mulaiDenganAkun, cekKodePeserta, saveAnswer, finalizeAttempt, catatKejadian, catatPosisi } from "./actions";
+import { percobaanMasihBerjalan, startAttempt, startAssessmentAttempt, mulaiDenganKode, mulaiDenganAkun, cekKodePeserta, saveAnswer, finalizeAttempt, kirimPercobaan, jawabanTersimpan, catatKejadian, catatPosisi } from "./actions";
 import { susunUntukPeserta } from "@/lib/acak";
 
 interface Student {
@@ -77,6 +78,8 @@ export default function QuizForm({
   identitasAwal: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null;
 }) {
   const [step, setStep] = useState<"name" | "quiz" | "submitting">("name");
+  const router = useRouter();
+  const [galatKirim, setGalatKirim] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [studentId, setStudentId] = useState("");
   // Identitas peserta try out TKA: kode peserta (murid luar) atau akun Tera.
@@ -121,7 +124,18 @@ export default function QuizForm({
       };
       // Tanya server dulu: sisa percobaan yang sudah dihapus, terkirim, atau
       // kehabisan waktu dibuang, dan peserta mulai dari halaman persiapan.
-      void percobaanMasihBerjalan(shareCode, d.attemptId).then((layak) => {
+      // Koneksi yang putus sebentar TIDAK boleh dibaca sebagai "tidak layak": panggilannya
+      // diulang, dan salinan di perangkat dibuang hanya bila server benar-benar menjawab tidak.
+      void (async () => {
+        let layak: boolean | null = null;
+        for (let i = 0; i < 4 && layak === null; i++) {
+          try {
+            layak = await percobaanMasihBerjalan(shareCode, d.attemptId);
+          } catch {
+            await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+          }
+        }
+        if (layak === null) return; // server tak terjangkau: biarkan di persiapan, salinan tetap ada
         if (!layak) {
           try {
             localStorage.removeItem(kunciSimpan);
@@ -137,7 +151,7 @@ export default function QuizForm({
         setKondisi(d.kondisi ?? { nomor: 0, ragu: [] });
         if (d.nama) setGuestName(d.nama);
         setStep("quiz");
-      });
+      })();
     } catch {
       /* penyimpanan tidak tersedia atau rusak: mulai dari awal */
     }
@@ -190,7 +204,17 @@ export default function QuizForm({
       const selisih = result.serverNow ? Date.parse(result.serverNow) - Date.now() : 0;
       setMulaiMs(mulai);
       setSkew(selisih);
-      simpanCbt({ attemptId: result.attemptId, mulaiMs: mulai, skew: selisih, responses: {}, kondisi: { nomor: 0, ragu: [] } });
+      // Melanjutkan percobaan yang sudah ada (salinan di perangkat hilang): ambil jawaban yang
+      // sudah tersimpan di server, supaya peserta tidak mengisi ulang dari nomor 1.
+      let tersimpan: Record<string, unknown> = {};
+      try {
+        const t = await jawabanTersimpan(result.attemptId);
+        if (t) tersimpan = t.responses;
+      } catch {
+        /* tanpa pemulihan: lanjut dengan jawaban kosong */
+      }
+      setResponses(tersimpan);
+      simpanCbt({ attemptId: result.attemptId, mulaiMs: mulai, skew: selisih, responses: tersimpan, kondisi: { nomor: 0, ragu: [] } });
     }
     setStep("quiz");
   }
@@ -212,16 +236,36 @@ export default function QuizForm({
   async function handleSubmit() {
     if (!attemptId || step === "submitting") return;
     setStep("submitting");
+    setGalatKirim(null);
+    // Untuk TKA: salinan di perangkat BARU dihapus setelah server menjawab sukses. Dulu dihapus
+    // lebih dulu, jadi pengiriman yang putus di tengah jalan meninggalkan jawaban di server tanpa
+    // percobaan yang terkirim, dan peserta tidak punya jalan kembali.
     if (cbt) {
-      try {
-        localStorage.removeItem(kunciSimpan);
-      } catch {
-        /* abaikan */
+      for (let i = 0; i < 5; i++) {
+        try {
+          const r = await kirimPercobaan(shareCode, attemptId);
+          if ("url" in r) {
+            try {
+              localStorage.removeItem(kunciSimpan);
+            } catch {
+              /* abaikan */
+            }
+            // Keluar dari layar penuh supaya halaman hasil tampil biasa.
+            if (typeof document !== "undefined" && document.fullscreenElement) {
+              void document.exitFullscreen().catch(() => {});
+            }
+            router.push(r.url);
+            return;
+          }
+          if (r.galat === "tidak_ditemukan") break;
+        } catch {
+          /* koneksi putus: coba lagi */
+        }
+        await new Promise((res) => setTimeout(res, 1000 * (i + 1)));
       }
-      // Keluar dari layar penuh supaya halaman hasil tampil biasa.
-      if (typeof document !== "undefined" && document.fullscreenElement) {
-        void document.exitFullscreen().catch(() => {});
-      }
+      setStep("quiz");
+      setGalatKirim("Jawabanmu belum terkirim karena koneksi bermasalah. Jawabanmu aman. Periksa internetmu, lalu tekan Kirim jawaban lagi.");
+      return;
     }
     await finalizeAttempt(shareCode, attemptId);
   }
@@ -317,6 +361,12 @@ export default function QuizForm({
 
   if (cbt) {
     return (
+      <>
+      {galatKirim && (
+        <div role="alert" className="fixed inset-x-0 top-0 z-[60] bg-red-600 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
+          {galatKirim}
+        </div>
+      )}
       <TampilanCbt
         tandaAir={tandaAir}
         onPosisi={(nomorAsli) => {
@@ -340,6 +390,7 @@ export default function QuizForm({
           simpanCbt({ kondisi: k });
         }}
       />
+      </>
     );
   }
 

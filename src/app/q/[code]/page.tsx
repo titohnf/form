@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { McqOptions, Question, Quiz, QuizSettings } from "@/lib/types";
@@ -30,6 +31,11 @@ export default async function PublicQuizPage({
   const { code } = await params;
   const { error, kode: kodeParam, akun: akunParam } = await searchParams;
   const supabase = await createClient();
+  // Sesi kode Tera (cookie httpOnly di alamat yang sama). Dipakai bila alamat tidak membawa `?kode=`,
+  // mis. peserta kembali dari halaman hasil ke mata pelajaran berikutnya, supaya layar masuk lama
+  // (ketik kode + pilih paket) tidak muncul lagi untuk orang yang sudah masuk.
+  const kodeCookie = (await cookies()).get("kode_peserta")?.value;
+  const kodeSumber = kodeParam || kodeCookie;
 
   // Share code dicari sebagai PENUGASAN dulu, baru sebagai paket soal lepas. Satu
   // paket soal bisa ditugaskan ke banyak sesi (migrasi 074), dan yang menentukan
@@ -105,7 +111,7 @@ export default async function PublicQuizPage({
   // Hanya ditanyakan bila paketnya memang sedang terkunci; sebelum migrasinya dijalankan fungsi ini
   // belum ada, dan galatnya dibaca sebagai "bukan penguji".
   if ((notYetOpen || alreadyClosed) && settings.cbt_mode) {
-    const kodeUji = (kodeParam ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
+    const kodeUji = (kodeSumber ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
     const [{ data: lewatKode }, { data: lewatAkun }] = await Promise.all([
       kodeUji ? supabase.rpc("peserta_penguji", { p_kode: kodeUji }) : Promise.resolve({ data: null }),
       supabase.rpc("akun_penguji"),
@@ -172,8 +178,8 @@ export default async function PublicQuizPage({
   // layar "Selamat Datang" dilewati dan peserta langsung ke halaman persiapan
   // (konfirmasi data). Kode yang tidak dikenal diabaikan: layar masuk biasa.
   let identitasAwal: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null = null;
-  if (!entry && settings.cbt_mode && kodeParam) {
-    const bersih = kodeParam.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
+  if (!entry && settings.cbt_mode && kodeSumber && !(akun && akunParam === "1")) {
+    const bersih = kodeSumber.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
     if (bersih) {
       const { data: namaPeserta } = await supabase.rpc("masuk_peserta", { p_kode: bersih });
       if (namaPeserta) identitasAwal = { tipe: "kode", kode: bersih, nama: namaPeserta as string };
