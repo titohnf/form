@@ -102,14 +102,25 @@ export default async function AttemptResultPage({
           </p>
         ) : (
           <>
-            <p className="text-sm text-gray-500">Skor kamu</p>
-            <p className="text-4xl font-semibold">
-              {angka(typedAttempt.total_score ?? 0)} / {angka(totalWeight)}
-            </p>
-            {settings.cbt_mode && totalWeight > 0 && (
-              <p className="mt-1 text-sm text-gray-500">
-                Nilai: {angka(((typedAttempt.total_score ?? 0) / totalWeight) * 100)} dari 100
-              </p>
+            {settings.cbt_mode && totalWeight > 0 ? (
+              <>
+                {/* Try out TKA: yang dibaca anak adalah NILAI 0-100; skor mentah hanya keterangan. */}
+                <p className="text-sm text-gray-500">Nilai kamu</p>
+                <p className="text-6xl font-semibold text-[#1b4f94]">
+                  {angka(((typedAttempt.total_score ?? 0) / totalWeight) * 100)}
+                </p>
+                <p className="mt-1 text-sm text-gray-500">dari 100</p>
+                <p className="mt-3 text-xs text-gray-400">
+                  Skor {angka(typedAttempt.total_score ?? 0)} dari {angka(totalWeight)}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-gray-500">Skor kamu</p>
+                <p className="text-4xl font-semibold">
+                  {angka(typedAttempt.total_score ?? 0)} / {angka(totalWeight)}
+                </p>
+              </>
             )}
             {settings.cbt_mode && (
               <p className="mt-4 text-sm text-gray-500">
