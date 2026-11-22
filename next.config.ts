@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   experimental: {
     // Permintaan aksi server datang dengan Origin alamat Tera, sedangkan Host-nya
     // alamat Sora di balik rewrite; tanpa daftar ini Next menolaknya sebagai CSRF.
-    serverActions: { allowedOrigins: [TERA_HOST, "bimbeltera.vercel.app", "app.bimbeltera.com"] },
+    serverActions: { allowedOrigins: [TERA_HOST, "bimbeltera.vercel.app", "app.bimbeltera.com", "sora.bimbeltera.com", "sora-bimbeltera.vercel.app"] },
   },
   async redirects() {
     return [
