@@ -506,12 +506,13 @@ export default function TampilanCbt({
               type="button"
               onClick={() => pindah(nomor - 1)}
               disabled={nomor === 0}
-              className="rounded-full bg-rose-400 px-4 py-2 text-sm font-medium text-white hover:bg-rose-500 disabled:opacity-40 sm:px-6"
+              className="whitespace-nowrap rounded-full bg-rose-400 px-3 py-2 text-sm font-medium text-white hover:bg-rose-500 disabled:opacity-40 sm:px-6"
             >
-              ‹ Soal sebelumnya
+              ‹ <span className="sm:hidden">Sebelumnya</span>
+              <span className="hidden sm:inline">Soal sebelumnya</span>
             </button>
             <label
-              className={`flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm font-medium sm:px-6 ${
+              className={`flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium sm:px-6 ${
                 ragu.has(soal.id) ? "bg-amber-500 text-white" : "bg-amber-400 text-gray-900"
               }`}
             >
@@ -522,7 +523,7 @@ export default function TampilanCbt({
               <button
                 type="button"
                 onClick={() => setKonfirmasi(true)}
-                className="rounded-full bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 sm:px-6"
+                className="whitespace-nowrap rounded-full bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 sm:px-6"
               >
                 Selesai
               </button>
@@ -530,9 +531,10 @@ export default function TampilanCbt({
               <button
                 type="button"
                 onClick={() => pindah(nomor + 1)}
-                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:px-6"
+                className="whitespace-nowrap rounded-full bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:px-6"
               >
-                Soal berikutnya ›
+                <span className="sm:hidden">Berikutnya</span>
+                <span className="hidden sm:inline">Soal berikutnya</span> ›
               </button>
             )}
           </div>

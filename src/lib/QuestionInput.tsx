@@ -250,7 +250,50 @@ function StatementGridInput({
 
   if (tabel) {
     return (
-      <div className="mt-3 max-w-full overflow-x-auto">
+      <>
+      {/* Layar sempit (HP): tabel tiga kolom membuat kalimat pernyataan terpotong satu kata per
+          baris. Di sini tiap pernyataan menjadi kartu, pilihannya dua tombol di bawah kalimat.
+          Dua tampilan ini membaca dan menulis jawaban yang sama. */}
+      <div className="mt-3 flex flex-col gap-3 sm:hidden">
+        {judulBaris && (
+          <p className="text-xs font-semibold text-gray-500">
+            <MathText text={judulBaris} />
+          </p>
+        )}
+        {statements.map((statement, i) => (
+          <div key={i} className="rounded-lg border border-gray-300 p-3">
+            <p className={teksIsi}>
+              <MathText text={statement} />
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {([true, false] as const).map((answer) => {
+                const pilih = answers[i] === answer;
+                return (
+                  <label
+                    key={String(answer)}
+                    className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 py-2 text-center text-sm font-medium ${
+                      pilih ? "border-blue-600 bg-blue-50 text-blue-800" : "border-gray-300 bg-white text-gray-800"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      className="h-5 w-5 shrink-0"
+                      name={`q_${question.id}_m_${i}`}
+                      checked={pilih}
+                      onChange={() => setAt(i, answer)}
+                      aria-label={`${statement} — ${answer ? trueLabel : falseLabel}`}
+                    />
+                    <span>
+                      <MathText text={answer ? trueLabel : falseLabel} />
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 hidden max-w-full overflow-x-auto sm:block">
         <table className={`w-full border-collapse ${teksIsi}`}>
           <thead>
             <tr>
@@ -290,6 +333,7 @@ function StatementGridInput({
           </tbody>
         </table>
       </div>
+      </>
     );
   }
 
