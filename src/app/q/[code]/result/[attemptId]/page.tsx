@@ -108,6 +108,23 @@ export default async function AttemptResultPage({
                 Nilai: {Math.round(((typedAttempt.total_score ?? 0) / totalWeight) * 1000) / 10} dari 100
               </p>
             )}
+            {settings.cbt_mode && (
+              <p className="mt-4 text-sm text-gray-500">
+                Pembahasan dan rincian penguasaan tiap kompetensi akan dibuka setelah tutor mengumumkan hasil
+                {!muridBimbel && hasilHref ? (
+                  <>
+                    {" "}
+                    di{" "}
+                    <a href={hasilHref} className="font-medium text-[#1b4f94] underline">
+                      halaman Try Out
+                    </a>
+                  </>
+                ) : (
+                  ""
+                )}
+                .
+              </p>
+            )}
             {rank && <p className="mt-1 text-sm text-gray-500">Peringkat #{rank}</p>}
             {badges.length > 0 && (
               <p className="mt-2 text-2xl">
