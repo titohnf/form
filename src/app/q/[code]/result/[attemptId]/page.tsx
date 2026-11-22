@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import type { Attempt, QuizSettings } from "@/lib/types";
 import { rankAttempts, computeBadges } from "@/lib/gamification";
 
+/** Angka untuk dibaca anak: paling banyak satu desimal, koma desimal (nilai sebagian dari soal tabel bisa pecahan). */
+const angka = (n: number) => n.toLocaleString("id-ID", { maximumFractionDigits: 1 });
+
 export default async function AttemptResultPage({
   params,
 }: {
@@ -101,11 +104,11 @@ export default async function AttemptResultPage({
           <>
             <p className="text-sm text-gray-500">Skor kamu</p>
             <p className="text-4xl font-semibold">
-              {typedAttempt.total_score} / {totalWeight}
+              {angka(typedAttempt.total_score ?? 0)} / {angka(totalWeight)}
             </p>
             {settings.cbt_mode && totalWeight > 0 && (
               <p className="mt-1 text-sm text-gray-500">
-                Nilai: {Math.round(((typedAttempt.total_score ?? 0) / totalWeight) * 1000) / 10} dari 100
+                Nilai: {angka(((typedAttempt.total_score ?? 0) / totalWeight) * 100)} dari 100
               </p>
             )}
             {settings.cbt_mode && (
