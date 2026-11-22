@@ -501,18 +501,18 @@ export default function TampilanCbt({
 
         {/* Tombol navigasi */}
         <footer className="shrink-0 border-t border-gray-200 px-3 py-3 sm:px-6">
-          <div className="mx-auto flex max-w-4xl items-center justify-between gap-2">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => pindah(nomor - 1)}
               disabled={nomor === 0}
-              className="whitespace-nowrap rounded-full bg-rose-400 px-3 py-2 text-sm font-medium text-white hover:bg-rose-500 disabled:opacity-40 sm:px-6"
+              className="whitespace-nowrap rounded-full bg-rose-400 px-2.5 py-2 text-[13px] sm:text-sm font-medium text-white hover:bg-rose-500 disabled:opacity-40 sm:px-6"
             >
               ‹ <span className="sm:hidden">Sebelumnya</span>
               <span className="hidden sm:inline">Soal sebelumnya</span>
             </button>
             <label
-              className={`flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium sm:px-6 ${
+              className={`flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-2 text-[13px] font-medium sm:gap-2 sm:px-6 sm:text-sm ${
                 ragu.has(soal.id) ? "bg-amber-500 text-white" : "bg-amber-400 text-gray-900"
               }`}
             >
@@ -523,7 +523,7 @@ export default function TampilanCbt({
               <button
                 type="button"
                 onClick={() => setKonfirmasi(true)}
-                className="whitespace-nowrap rounded-full bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 sm:px-6"
+                className="whitespace-nowrap rounded-full bg-green-600 px-2.5 py-2 text-[13px] sm:text-sm font-medium text-white hover:bg-green-700 sm:px-6"
               >
                 Selesai
               </button>
@@ -531,7 +531,7 @@ export default function TampilanCbt({
               <button
                 type="button"
                 onClick={() => pindah(nomor + 1)}
-                className="whitespace-nowrap rounded-full bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:px-6"
+                className="whitespace-nowrap rounded-full bg-blue-600 px-2.5 py-2 text-[13px] sm:text-sm font-medium text-white hover:bg-blue-700 sm:px-6"
               >
                 <span className="sm:hidden">Berikutnya</span>
                 <span className="hidden sm:inline">Soal berikutnya</span> ›
