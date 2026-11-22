@@ -98,8 +98,23 @@ export default async function PublicQuizPage({
   const settings = (typedQuiz.settings ?? {}) as Partial<QuizSettings>;
   const now = new Date();
 
-  const notYetOpen = settings.opens_at && now < new Date(settings.opens_at);
-  const alreadyClosed = settings.closes_at && now > new Date(settings.closes_at);
+  let notYetOpen = settings.opens_at && now < new Date(settings.opens_at);
+  let alreadyClosed = settings.closes_at && now > new Date(settings.closes_at);
+
+  // Akun penguji (akun uji pemilik, `learners.penguji`, migrasi Tera 233) tidak ikut menunggu jadwal.
+  // Hanya ditanyakan bila paketnya memang sedang terkunci; sebelum migrasinya dijalankan fungsi ini
+  // belum ada, dan galatnya dibaca sebagai "bukan penguji".
+  if ((notYetOpen || alreadyClosed) && settings.cbt_mode) {
+    const kodeUji = (kodeParam ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
+    const [{ data: lewatKode }, { data: lewatAkun }] = await Promise.all([
+      kodeUji ? supabase.rpc("peserta_penguji", { p_kode: kodeUji }) : Promise.resolve({ data: null }),
+      supabase.rpc("akun_penguji"),
+    ]);
+    if (lewatKode === true || lewatAkun === true) {
+      notYetOpen = null;
+      alreadyClosed = null;
+    }
+  }
 
   // Soal dibaca lewat fungsi database, bukan langsung dari tabel `questions`:
   // tabel itu memuat kunci jawaban dan pembahasan, yang tidak boleh sampai ke
