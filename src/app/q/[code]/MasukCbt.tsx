@@ -25,6 +25,7 @@ export default function MasukCbt({
   namaAsesmen,
   akun,
   namaIdentitas,
+  dariMenu = false,
   onIdentitas,
   onCekKode,
   students,
@@ -48,6 +49,8 @@ export default function MasukCbt({
   akun: string | null;
   /** Nama peserta yang sudah dikenali (dari kode atau akun), untuk layar konfirmasi. */
   namaIdentitas: string | null;
+  /** Peserta datang dari menu Try Out Tera (sudah dikenali): Kembali membawanya ke menu itu, bukan ke layar masuk lama. */
+  dariMenu?: boolean;
   onIdentitas: (i: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null) => void;
   /** Memeriksa kode peserta; mengembalikan nama atau pesan galat. */
   onCekKode: (kode: string) => Promise<{ nama: string } | { error: string }>;
@@ -138,6 +141,20 @@ export default function MasukCbt({
     }
     setGalatLokal(null);
     setTahap("konfirmasi");
+  }
+
+  /** Kembali ke menu Try Out Tera (halaman asal), bukan ke layar masuk kode + pilih paket yang sudah tidak dipakai. */
+  function kembaliKeMenu() {
+    try {
+      const asal = document.referrer ? new URL(document.referrer) : null;
+      if (asal && asal.origin === window.location.origin && !asal.pathname.startsWith("/tryout/q")) {
+        window.location.href = asal.pathname + asal.search;
+        return;
+      }
+    } catch {
+      /* abaikan */
+    }
+    window.location.href = "/";
   }
 
   async function mulai() {
@@ -364,7 +381,7 @@ export default function MasukCbt({
                 {!namaAsesmen && (
                   <button
                     type="button"
-                    onClick={() => setTahap("masuk")}
+                    onClick={dariMenu ? kembaliKeMenu : () => setTahap("masuk")}
                     disabled={memulai}
                     className="rounded-full border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >

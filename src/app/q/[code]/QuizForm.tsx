@@ -291,6 +291,7 @@ export default function QuizForm({
         namaAsesmen={assessment?.studentName ?? null}
         akun={akun}
         namaIdentitas={identitas?.nama ?? null}
+        dariMenu={identitasAwal !== null}
         onIdentitas={setIdentitas}
         onCekKode={cekKodePeserta}
         students={students}
