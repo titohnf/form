@@ -7,7 +7,7 @@ import { BRANCH_END } from "@/lib/types";
 import QuestionInput from "@/lib/QuestionInput";
 import TampilanCbt, { type KondisiCbt } from "./TampilanCbt";
 import MasukCbt from "./MasukCbt";
-import { percobaanMasihBerjalan, startAttempt, startAssessmentAttempt, mulaiDenganKode, mulaiDenganAkun, cekKodePeserta, saveAnswer, finalizeAttempt, kirimPercobaan, jawabanTersimpan, catatKejadian, catatPosisi } from "./actions";
+import { percobaanMasihBerjalan, startAttempt, startAssessmentAttempt, mulaiDenganKode, mulaiDenganAkun, saveAnswer, finalizeAttempt, kirimPercobaan, jawabanTersimpan, catatKejadian, catatPosisi } from "./actions";
 import { susunUntukPeserta } from "@/lib/acak";
 
 interface Student {
@@ -45,7 +45,6 @@ export default function QuizForm({
   kode,
   paket,
   assessment,
-  akun,
   identitasAwal,
   penguji = false,
 }: {
@@ -74,7 +73,6 @@ export default function QuizForm({
    */
   assessment: { studentName: string } | null;
   /** Nama siswa Tera yang sedang login (try out TKA), atau null. */
-  akun: string | null;
   /** Peserta yang dibawa dari Tera dengan `?kode=`: identitas sudah pasti, layar masuk dilewati. */
   /** Akun penguji: layar konfirmasi memberi tahu bahwa jadwal diabaikan. */
   penguji?: boolean;
@@ -86,7 +84,7 @@ export default function QuizForm({
   const [guestName, setGuestName] = useState("");
   const [studentId, setStudentId] = useState("");
   // Identitas peserta try out TKA: kode peserta (murid luar) atau akun Tera.
-  const [identitas, setIdentitas] = useState<{ tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null>(identitasAwal);
+  const [identitas] = useState<{ tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null>(identitasAwal);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
@@ -292,12 +290,9 @@ export default function QuizForm({
         jumlahSoal={questions.length}
         menit={timeLimitMinutes}
         namaAsesmen={assessment?.studentName ?? null}
-        akun={akun}
         namaIdentitas={identitas?.nama ?? null}
         dariMenu={identitasAwal !== null}
         penguji={penguji}
-        onIdentitas={setIdentitas}
-        onCekKode={cekKodePeserta}
         students={students}
         studentId={studentId}
         onStudentId={setStudentId}

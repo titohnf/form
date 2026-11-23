@@ -74,17 +74,6 @@ function pesanMasuk(pesan: string): string {
   return "Tidak bisa memulai. Coba lagi, atau tanya tutor.";
 }
 
-/** Memeriksa kode peserta; hanya mengembalikan nama untuk layar konfirmasi. */
-export async function cekKodePeserta(kode: string): Promise<{ nama: string } | { error: string }> {
-  const bersih = kode.trim();
-  if (!bersih) return { error: "Kode wajib diisi." };
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("masuk_peserta", { p_kode: bersih });
-  if (error) return { error: "Tidak bisa memeriksa kode. Coba lagi." };
-  if (!data) return { error: "Kode tidak dikenal. Periksa lagi kodenya, atau tanya tutor." };
-  return { nama: data as string };
-}
-
 type HasilMulai = { attempt_id: string; started_at: string; server_now: string; nama: string };
 
 /** Mulai (atau lanjutkan) percobaan dengan kode peserta murid luar. */

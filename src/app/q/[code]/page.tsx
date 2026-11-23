@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { McqOptions, Question, Quiz, QuizSettings } from "@/lib/types";
 import QuizForm from "./QuizForm";
@@ -26,10 +27,10 @@ export default async function PublicQuizPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ error?: string; kode?: string; akun?: string }>;
+  searchParams: Promise<{ error?: string; kode?: string }>;
 }) {
   const { code } = await params;
-  const { error, kode: kodeParam, akun: akunParam } = await searchParams;
+  const { error, kode: kodeParam } = await searchParams;
   const supabase = await createClient();
   // Sesi kode Tera (cookie httpOnly di alamat yang sama). Dipakai bila alamat tidak membawa `?kode=`,
   // mis. peserta kembali dari halaman hasil ke mata pelajaran berikutnya, supaya layar masuk lama
@@ -180,7 +181,7 @@ export default async function PublicQuizPage({
   // layar "Selamat Datang" dilewati dan peserta langsung ke halaman persiapan
   // (konfirmasi data). Kode yang tidak dikenal diabaikan: layar masuk biasa.
   let identitasAwal: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null = null;
-  if (!entry && settings.cbt_mode && kodeSumber && !(akun && akunParam === "1")) {
+  if (!entry && settings.cbt_mode && kodeSumber && !akun) {
     const bersih = kodeSumber.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
     if (bersih) {
       const { data: namaPeserta } = await supabase.rpc("masuk_peserta", { p_kode: bersih });
@@ -188,10 +189,19 @@ export default async function PublicQuizPage({
     }
   }
 
-  // Akun Tera yang sudah login (sesi dibagi karena Sora dipasang di bawah alamat
-  // Tera): `?akun=1` dari kartu Try Out melewati Selamat Datang juga.
-  if (!identitasAwal && !entry && settings.cbt_mode && akun && akunParam === "1") {
+  // Akun Tera yang sudah login (sesi dibagi karena Sora dipasang di bawah alamat Tera).
+  if (!identitasAwal && !entry && settings.cbt_mode && akun) {
     identitasAwal = { tipe: "akun", nama: akun };
+  }
+
+  // Try out TKA tanpa identitas (belum masuk, atau kode tidak dikenal): layar masuk lama (ketik kode +
+  // pilih paket) sudah dihapus. Masuk dilakukan di halaman /login alamat ini (sora.: kode, app.: email),
+  // lalu memilih try out dari menu Try Out. Alamat mutlak karena Sora dipasang di bawah basePath /tryout.
+  if (!entry && settings.cbt_mode && learners.length === 0 && !identitasAwal) {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const protokol = h.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
+    if (host) redirect(`${protokol}://${host}/login`);
   }
 
   // Daftar paket try out TKA yang bisa dipilih di halaman masuk. Hanya paket
@@ -248,7 +258,6 @@ export default async function PublicQuizPage({
             kode={code}
             paket={paketTkA}
             assessment={entry ? { studentName } : null}
-            akun={akun}
             identitasAwal={identitasAwal}
             penguji={penguji}
           />
