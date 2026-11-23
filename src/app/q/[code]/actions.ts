@@ -120,12 +120,20 @@ export async function saveAnswer(
   // Satu fungsi database (migrasi Tera 231) yang memeriksa percobaan belum
   // dikirim, soal milik paketnya, dan batas waktu paket TKA; hanya kolom
   // `response` yang bisa ditulis peserta, bukan skor.
-  const { data } = await supabase.rpc("simpan_jawaban", {
+  const { data, error } = await supabase.rpc("simpan_jawaban", {
     p_attempt: attemptId,
     p_question: questionId,
     p_response: response,
     p_index: questionIndex,
   });
+  // Galat database TIDAK boleh diam-diam dianggap berhasil (dulu begitu): jawabannya tidak
+  // pernah sampai, padahal penilaian membaca dari database. Yang pasti permanen (percobaan atau
+  // soal tidak dikenal) dilaporkan agar antrean membuangnya; sisanya dilempar supaya antrean
+  // di layar (`AntreanJawaban`) mencobanya lagi.
+  if (error) {
+    if (/percobaan_tidak_ditemukan|soal_bukan_milik_paket/.test(error.message)) return { permanen: true as const };
+    throw new Error(error.message);
+  }
   const hasil = (data ?? {}) as { expired?: boolean };
   if (hasil.expired) return { expired: true as const };
 }

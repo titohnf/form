@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Branching, Question } from "@/lib/types";
 import { BRANCH_END } from "@/lib/types";
@@ -9,6 +9,7 @@ import TampilanCbt, { type KondisiCbt } from "./TampilanCbt";
 import MasukCbt from "./MasukCbt";
 import { percobaanMasihBerjalan, startAttempt, startAssessmentAttempt, mulaiDenganKode, mulaiDenganAkun, saveAnswer, finalizeAttempt, kirimPercobaan, jawabanTersimpan, catatKejadian, catatPosisi } from "./actions";
 import { susunUntukPeserta } from "@/lib/acak";
+import { AntreanJawaban, type IsiAntrean } from "@/lib/antrean-jawaban";
 
 interface Student {
   id: string;
@@ -99,6 +100,59 @@ export default function QuizForm({
     [cbt, attemptId, questions, acakSoal, acakPilihan],
   );
   const [kondisi, setKondisi] = useState<KondisiCbt>({ nomor: 0, ragu: [] });
+  // Jawaban yang belum diterima server menunggu di antrean ini, dicoba lagi sampai sampai
+  // (lihat `lib/antrean-jawaban.ts`). Penilaian membaca dari database, jadi jawaban yang
+  // hanya ada di perangkat sama dengan jawaban yang hilang.
+  const attemptIdRef = useRef<string | null>(null);
+  const [tertunda, setTertunda] = useState(0);
+  const [antrean] = useState(
+    () =>
+      new AntreanJawaban(
+        async (soalId, jawaban, indeks) => {
+          const id = attemptIdRef.current;
+          if (!id) throw new Error("percobaan belum dimulai");
+          return saveAnswer(quizId, id, soalId, jawaban, indeks);
+        },
+        (isi) => {
+          setTertunda(Object.keys(isi).length);
+          if (cbt) {
+            try {
+              const lama = JSON.parse(localStorage.getItem(`cbt:${shareCode}`) ?? "{}");
+              localStorage.setItem(`cbt:${shareCode}`, JSON.stringify({ ...lama, tunda: isi }));
+            } catch {
+              /* tanpa penyimpanan, hanya pemulihan antrean yang hilang */
+            }
+          }
+        },
+      ),
+  );
+  const [peringatanTunda, setPeringatanTunda] = useState(false);
+  useEffect(() => {
+    attemptIdRef.current = attemptId;
+    if (attemptId) void antrean.siramkan();
+  }, [attemptId, antrean]);
+  // Peringatan baru muncul bila antrean tak kunjung kosong (sinyal benar-benar bermasalah),
+  // bukan setiap kali satu jawaban sedang dalam perjalanan.
+  const adaTunda = tertunda > 0;
+  useEffect(() => {
+    if (!adaTunda) return;
+    const t = setTimeout(() => setPeringatanTunda(true), 4000);
+    return () => {
+      clearTimeout(t);
+      setPeringatanTunda(false);
+    };
+  }, [adaTunda]);
+  // Dicoba lagi saat jaringan kembali dan berkala selama ujian berjalan.
+  useEffect(() => {
+    if (!attemptId) return;
+    const coba = () => void antrean.siramkan();
+    window.addEventListener("online", coba);
+    const t = setInterval(coba, 15000);
+    return () => {
+      window.removeEventListener("online", coba);
+      clearInterval(t);
+    };
+  }, [attemptId, antrean]);
 
   // Kalau halaman dimuat ulang di tengah ujian (tab tertutup, HP kehabisan
   // memori), murid melanjutkan percobaan yang sama dengan waktu yang tetap
@@ -122,6 +176,7 @@ export default function QuizForm({
         responses: Record<string, unknown>;
         kondisi: KondisiCbt;
         nama?: string;
+        tunda?: IsiAntrean;
       };
       // Tanya server dulu: sisa percobaan yang sudah dihapus, terkirim, atau
       // kehabisan waktu dibuang, dan peserta mulai dari halaman persiapan.
@@ -149,6 +204,7 @@ export default function QuizForm({
         setMulaiMs(d.mulaiMs);
         setSkew(d.skew);
         setResponses(d.responses ?? {});
+        antrean.pulihkan(d.tunda);
         setKondisi(d.kondisi ?? { nomor: 0, ragu: [] });
         if (d.nama) setGuestName(d.nama);
         setStep("quiz");
@@ -156,7 +212,7 @@ export default function QuizForm({
     } catch {
       /* penyimpanan tidak tersedia atau rusak: mulai dari awal */
     }
-  }, [cbt, kunciSimpan, shareCode]);
+  }, [cbt, kunciSimpan, shareCode, antrean]);
 
   function simpanCbt(patch: Record<string, unknown>) {
     try {
@@ -226,18 +282,31 @@ export default function QuizForm({
       if (cbt) simpanCbt({ responses: baru });
       return baru;
     });
-    if (attemptId) {
-      saveAnswer(quizId, attemptId, questionId, response, index).then((r) => {
-        // Waktu sudah habis menurut server: kirim apa yang sudah tersimpan.
-        if (r && "expired" in r) handleSubmit();
-      });
-    }
+    antrean.tambah(questionId, response, index);
+    // Waktu sudah habis menurut server: kirim apa yang sudah tersimpan.
+    void antrean.siramkan().then(() => {
+      if (antrean.habis) void handleSubmit();
+    });
   }
 
   async function handleSubmit() {
     if (!attemptId || step === "submitting") return;
     setStep("submitting");
     setGalatKirim(null);
+    // Semua jawaban harus sudah diterima server SEBELUM dinilai. Antrean dicoba beberapa kali;
+    // bila masih ada yang tertunda, pengiriman ditahan dan peserta diberi tahu (bukan dikirim
+    // diam-diam dengan jawaban yang kurang).
+    for (let i = 0; i < 4 && antrean.jumlah > 0; i++) {
+      await antrean.siramkan();
+      if (antrean.jumlah > 0) await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+    }
+    if (cbt && antrean.jumlah > 0 && !antrean.habis) {
+      setStep("quiz");
+      setGalatKirim(
+        `${antrean.jumlah} jawabanmu belum sampai ke server karena koneksi bermasalah. Jawabanmu masih tersimpan di perangkat. Periksa internetmu, lalu tekan Kirim jawaban lagi.`,
+      );
+      return;
+    }
     // Untuk TKA: salinan di perangkat BARU dihapus setelah server menjawab sukses. Dulu dihapus
     // lebih dulu, jadi pengiriman yang putus di tengah jalan meninggalkan jawaban di server tanpa
     // percobaan yang terkirim, dan peserta tidak punya jalan kembali.
@@ -362,10 +431,16 @@ export default function QuizForm({
   if (cbt) {
     return (
       <>
-      {galatKirim && (
+      {galatKirim ? (
         <div role="alert" className="fixed inset-x-0 top-0 z-[60] bg-red-600 px-4 py-3 text-center text-sm font-medium text-white shadow-lg">
           {galatKirim}
         </div>
+      ) : (
+        peringatanTunda && (
+          <div role="status" className="fixed inset-x-0 top-0 z-[60] bg-amber-500 px-4 py-2 text-center text-sm font-medium text-white shadow-lg">
+            {tertunda} jawaban belum tersimpan ke server. Tetap kerjakan; akan dicoba lagi otomatis saat koneksi kembali.
+          </div>
+        )
       )}
       <TampilanCbt
         tandaAir={tandaAir}
