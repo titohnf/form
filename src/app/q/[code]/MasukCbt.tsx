@@ -26,6 +26,7 @@ export default function MasukCbt({
   akun,
   namaIdentitas,
   dariMenu = false,
+  penguji = false,
   onIdentitas,
   onCekKode,
   students,
@@ -51,6 +52,8 @@ export default function MasukCbt({
   namaIdentitas: string | null;
   /** Peserta datang dari menu Try Out Tera (sudah dikenali): Kembali membawanya ke menu itu, bukan ke layar masuk lama. */
   dariMenu?: boolean;
+  /** Akun penguji: tampilkan banner di layar konfirmasi. */
+  penguji?: boolean;
   onIdentitas: (i: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null) => void;
   /** Memeriksa kode peserta; mengembalikan nama atau pesan galat. */
   onCekKode: (kode: string) => Promise<{ nama: string } | { error: string }>;
@@ -374,6 +377,12 @@ export default function MasukCbt({
                   <li>Jangan menutup atau memuat ulang halaman, dan jangan berpindah tab atau aplikasi selama mengerjakan. Ujian berjalan di layar penuh, dan setiap kali kamu meninggalkan halaman, kejadiannya dicatat dan dapat dilihat oleh tutor.</li>
                 </ul>
               </div>
+
+              {penguji && (
+                <p role="note" className="mt-4 rounded bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
+                  <strong className="font-semibold">Ini akun penguji.</strong> Jadwal buka dan tutup tidak berlaku untukmu, supaya kamu bisa melihat soal dan menguji kunci jawaban. Jawabanmu hanya untuk menguji dan tidak perlu disimpan: jangan dihitung sebagai nilai atau pengerjaan siswa.
+                </p>
+              )}
 
               {pesan && <p className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{pesan}</p>}
 

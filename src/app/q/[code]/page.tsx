@@ -107,16 +107,18 @@ export default async function PublicQuizPage({
   let notYetOpen = settings.opens_at && now < new Date(settings.opens_at);
   let alreadyClosed = settings.closes_at && now > new Date(settings.closes_at);
 
-  // Akun penguji (akun uji pemilik, `learners.penguji`, migrasi Tera 233) tidak ikut menunggu jadwal.
-  // Hanya ditanyakan bila paketnya memang sedang terkunci; sebelum migrasinya dijalankan fungsi ini
-  // belum ada, dan galatnya dibaca sebagai "bukan penguji".
-  if ((notYetOpen || alreadyClosed) && settings.cbt_mode) {
+  // Akun penguji (akun uji pemilik, `learners.penguji`, migrasi Tera 233) tidak ikut menunggu jadwal, dan
+  // layar konfirmasi memberi tahu bahwa ini akun penguji. Hanya ditanyakan untuk paket TKA; sebelum
+  // migrasinya dijalankan fungsi ini belum ada, dan galatnya dibaca sebagai "bukan penguji".
+  let penguji = false;
+  if (settings.cbt_mode) {
     const kodeUji = (kodeSumber ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
     const [{ data: lewatKode }, { data: lewatAkun }] = await Promise.all([
       kodeUji ? supabase.rpc("peserta_penguji", { p_kode: kodeUji }) : Promise.resolve({ data: null }),
       supabase.rpc("akun_penguji"),
     ]);
-    if (lewatKode === true || lewatAkun === true) {
+    penguji = lewatKode === true || lewatAkun === true;
+    if (penguji) {
       notYetOpen = null;
       alreadyClosed = null;
     }
@@ -248,6 +250,7 @@ export default async function PublicQuizPage({
             assessment={entry ? { studentName } : null}
             akun={akun}
             identitasAwal={identitasAwal}
+            penguji={penguji}
           />
         </div>
       )}

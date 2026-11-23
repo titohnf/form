@@ -47,6 +47,7 @@ export default function QuizForm({
   assessment,
   akun,
   identitasAwal,
+  penguji = false,
 }: {
   quizId: string;
   shareCode: string;
@@ -75,6 +76,8 @@ export default function QuizForm({
   /** Nama siswa Tera yang sedang login (try out TKA), atau null. */
   akun: string | null;
   /** Peserta yang dibawa dari Tera dengan `?kode=`: identitas sudah pasti, layar masuk dilewati. */
+  /** Akun penguji: layar konfirmasi memberi tahu bahwa jadwal diabaikan. */
+  penguji?: boolean;
   identitasAwal: { tipe: "kode"; kode: string; nama: string } | { tipe: "akun"; nama: string } | null;
 }) {
   const [step, setStep] = useState<"name" | "quiz" | "submitting">("name");
@@ -292,6 +295,7 @@ export default function QuizForm({
         akun={akun}
         namaIdentitas={identitas?.nama ?? null}
         dariMenu={identitasAwal !== null}
+        penguji={penguji}
         onIdentitas={setIdentitas}
         onCekKode={cekKodePeserta}
         students={students}
